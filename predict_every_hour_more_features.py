@@ -2,6 +2,7 @@ import sklearn.linear_model as lm
 import numpy as np
 import matplotlib.pyplot as plt
 import csv
+import math
 
 
 def get_bias(real, predicted):
@@ -23,7 +24,7 @@ def show_figure(real_values, predicted_values, shmu_predicted):
 
 data = []
 
-with open('../data_all_hours.csv', newline='') as csvfile:
+with open('../data_all_hours_multiple_features.csv', newline='') as csvfile:
     reader = csv.reader(csvfile, delimiter=';', quotechar='|')
     i = 0
     for row in reader:
@@ -64,15 +65,21 @@ while (train_end < m):
 
     X_test = X[train_end:train_end + pred_length, :]
     y_test = y[train_end:train_end + pred_length]
+    # get weights
+    weight = 0.98
+    # change to train
+    weights = list(reversed([math.sqrt(weight ** j)
+                             for j in range(X_train.shape[0])]))
+    weights = np.array(weights)
 
-    lr.fit(X_train, y_train)
+    lr.fit(X_train, y_train, sample_weight=weights)
 
     y_predicted = lr.predict(X_test)
 
     predicted_all.extend(list(y_predicted))
 
-    mae_shmu += np.sum(abs(y_test.T - X_test[:, 1]))
-    mse_shmu += np.sum((y_test.T - X_test[:, 1]) ** 2)
+    mae_shmu += np.sum(abs(y_test.T - X_test[:, 3]))
+    mse_shmu += np.sum((y_test.T - X_test[:, 3]) ** 2)
 
     mae_predict += np.sum(abs(y_test - y_predicted))
     mse_predict += np.sum((y_test - y_predicted) ** 2)

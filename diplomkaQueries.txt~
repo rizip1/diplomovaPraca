@@ -88,4 +88,3 @@ SELECT c.reference_date, c.validity_date, c.humidity, c.wind_direction,
 FROM current_temp c, future_temp f, future_temp p
 WHERE c.validity_date = f.validity_date AND c.validity_date = p.validity_date - interval '1d'
 ORDER BY c.reference_date, c.validity_date
-
