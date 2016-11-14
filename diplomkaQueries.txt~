@@ -1,0 +1,90 @@
+SELECT *
+FROM observations o
+WHERE o.wheather_station_id = 11816 and o.date < '2015-01-01 00:00:00'
+ORDER BY o.date ASC
+LIMIT 10
+
+SELECT f.reference_date, f.validity_date, f.temperature, f.rr
+FROM forecast f
+WHERE f.reference_date < '2015-01-01 00:00:00' AND f.wheather_station_id = 11816 AND
+f.rr < 13 AND f.rr > 0
+ORDER BY f.validity_date ASC
+LIMIT 10
+
+// observation withing 12 hours only (basic model)
+WITH current_temperature AS (
+	SELECT o.temperature as current_temperature, f.temperature as shmu_prediction, f.reference_date
+        FROM observations o, forecast f
+        WHERE o.wheather_station_id = 11816 AND f.reference_date < '2015-01-01 00:00:00' AND
+		o.wheather_station_id = f.wheather_station_id AND
+		f.rr = 12 AND f.reference_date = o.date
+     ), future_temperature AS (
+	SELECT o.temperature as future_temperature, f.reference_date
+        FROM observations o, forecast f
+        WHERE o.wheather_station_id = 11816 AND o.wheather_station_id = f.wheather_station_id AND
+		f.reference_date < '2015-01-01 00:00:00' AND
+		f.rr = 12 AND f.reference_date + interval '12h' = o.date
+     )
+
+SELECT current_temperature, shmu_prediction, future_temperature
+FROM future_temperature f, current_temperature c
+WHERE f.reference_date = c.reference_date
+
+// observations within every hour (basic model)
+WITH future_temp AS (
+	SELECT o.temperature as future_temp, f.validity_date, f.temperature as future_temp_shmu
+        FROM observations o, forecast f
+        WHERE o.wheather_station_id = 11816 AND o.wheather_station_id = f.wheather_station_id AND
+		f.reference_date < '2015-01-01 00:00:00' AND
+		f.rr < 13 AND f.rr > 0 AND f.validity_date = o.date
+     ), current_temp AS (
+	SELECT o.temperature as current_temp, f.validity_date, f.reference_date
+        FROM observations o, forecast f
+        WHERE o.wheather_station_id = 11816 AND o.wheather_station_id = f.wheather_station_id AND
+		f.reference_date < '2015-01-01 00:00:00' AND
+		f.rr < 13 AND f.rr > 0 AND f.reference_date = o.date
+     )
+SELECT c.reference_date, c.validity_date, c.current_temp, f.future_temp_shmu, f.future_temp
+FROM current_temp c, future_temp f
+WHERE c.validity_date = f.validity_date
+ORDER BY c.reference_date, c.validity_date
+
+// observations within every hour (multiple features)
+WITH future_temp AS (
+	SELECT o.temperature as future_temp, f.validity_date, f.temperature as future_temp_shmu
+        FROM observations o, forecast f
+        WHERE o.wheather_station_id = 11816 AND o.wheather_station_id = f.wheather_station_id AND
+		f.reference_date < '2015-01-01 00:00:00' AND
+		f.rr < 13 AND f.rr > 0 AND f.validity_date = o.date
+     ), current_temp AS (
+	SELECT o.temperature as current_temp, f.validity_date, f.reference_date, o.humidity, o.wind_direction
+        FROM observations o, forecast f
+        WHERE o.wheather_station_id = 11816 AND o.wheather_station_id = f.wheather_station_id AND
+		f.reference_date < '2015-01-01 00:00:00' AND
+		f.rr < 13 AND f.rr > 0 AND f.reference_date = o.date
+     )
+SELECT c.reference_date, c.validity_date, c.humidity, c.wind_direction, 
+	c.current_temp, f.future_temp_shmu, f.future_temp
+FROM current_temp c, future_temp f
+WHERE c.validity_date = f.validity_date
+ORDER BY c.reference_date, c.validity_date
+
+// autokorekcia (abs error)
+WITH future_temp AS (
+	SELECT o.temperature as future_temp, f.validity_date, f.temperature as future_temp_shmu
+        FROM observations o, forecast f
+        WHERE o.wheather_station_id = 11816 AND o.wheather_station_id = f.wheather_station_id AND
+		f.reference_date < '2015-01-01 00:00:00' AND
+		f.rr < 13 AND f.rr > 0 AND f.validity_date = o.date
+     ), current_temp AS (
+	SELECT o.temperature as current_temp, f.validity_date, f.reference_date, o.humidity, o.wind_direction
+        FROM observations o, forecast f
+        WHERE o.wheather_station_id = 11816 AND o.wheather_station_id = f.wheather_station_id AND
+		f.reference_date < '2015-01-01 00:00:00' AND
+		f.rr < 13 AND f.rr > 0 AND f.reference_date = o.date
+     )
+SELECT c.reference_date, c.validity_date, c.humidity, c.wind_direction, 
+	c.current_temp, f.future_temp_shmu, f.future_temp, abs(p.future_temp - p.future_temp_shmu) as error
+FROM current_temp c, future_temp f, future_temp p
+WHERE c.validity_date = f.validity_date AND c.validity_date = p.validity_date - interval '1d'
+ORDER BY c.reference_date, c.validity_date
