@@ -1,34 +1,9 @@
 import sklearn.linear_model as lm
 import numpy as np
-import matplotlib.pyplot as plt
-import csv
 
+from common import get_bias, show_figure, load_data
 
-def get_bias(real, predicted):
-    return np.mean(real - predicted)
-
-
-def show_figure(real_values, predicted_values, shmu_predicted):
-    plt.figure(1)
-    plt.plot(real_values, 'ok', label='Real values')
-    plt.plot(predicted_values, 'or', label='Predicted values (Our model)')
-    plt.plot(shmu_predicted, 'og', label='Predicted values (SHMU)')
-    plt.legend(loc=1)
-    plt.title('Temperature predictions')
-    plt.ylabel('Temperature')
-    plt.xlabel('Samples')
-    plt.show()
-
-data = []
-
-with open('../data.csv', newline='') as csvfile:
-    reader = csv.reader(csvfile, delimiter=';', quotechar='|')
-    i = 0
-    for row in reader:
-        if (row):
-            if (i != 0):
-                data.append(row)
-            i += 1
+data = load_data('../data.csv')
 
 # retype everything to float
 data = np.array(data).astype(float)
