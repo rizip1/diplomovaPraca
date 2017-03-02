@@ -4,6 +4,7 @@ import pandas as pd
 from common import get_bias, show_predictions, get_parser, get_mode_action
 from common import show_errors
 
+
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
 
@@ -53,3 +54,10 @@ if __name__ == '__main__':
                      shmu_predictions=data.future_temp_shmu)
 
     show_errors(predicted_errors, shmu_errors)
+'''
+Linear regression coefficients will be identical if you do, or don't,
+scale your data,
+because it's looking at proportional relationships between them
+
+but can run faster when using gradient descent
+'''
