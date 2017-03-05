@@ -80,6 +80,10 @@ def window(data, x, y, weight, lr, window_len, slide=False):
     predicted_all = np.array([])
     train_end = window_len
 
+    # Check if all indexes are ok
+    # check if data ok, previous work had some problem with wind or
+    # other feature
+
     while (train_end < data_len):
         x_train = x.iloc[start:train_end, :]
         y_train = y.iloc[start:train_end]
