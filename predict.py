@@ -18,16 +18,22 @@ if __name__ == '__main__':
     length = int(args.length)
 
     data = pd.read_csv(args.data_file, delimiter=';')
-
-    # Shape info
-    print('Shape', data.shape)
-
-    # Columns info
-    # print('columns', data.columns)
-
     y = data.future_temp
 
     fieldsToDrop = ['future_temp', 'validity_date', 'reference_date']
+
+    # fieldsToDrop.append('rainfall_last_hour')
+    # fieldsToDrop.append('pressure')
+
+    # cause strange errors
+    fieldsToDrop.append('humidity')
+
+    # cause strange errors
+    fieldsToDrop.append('wind_speed')
+
+    # cause strange errors
+    fieldsToDrop.append('wind_direction')
+
     x = data.drop(fieldsToDrop, axis=1)
 
     lr = lm.LinearRegression(fit_intercept=fit_intercept)
@@ -54,10 +60,3 @@ if __name__ == '__main__':
                      shmu_predictions=data.future_temp_shmu)
 
     show_errors(predicted_errors, shmu_errors)
-'''
-Linear regression coefficients will be identical if you do, or don't,
-scale your data,
-because it's looking at proportional relationships between them
-
-but can run faster when using gradient descent
-'''
