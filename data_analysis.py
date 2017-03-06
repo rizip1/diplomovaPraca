@@ -28,6 +28,9 @@ def get_parser():
     parser.add_argument('--skip-hists', action='store_true', default=False,
                         dest='skip_hists',
                         help='Will not recreate hists files')
+    parser.add_argument('--skip-corr', action='store_true', default=False,
+                        dest='skip_corr',
+                        help='Will not recreate correlation matrix')
     return parser
 
 
@@ -67,6 +70,17 @@ def save_invalid_data_to_csv(filename, invalid_rows_counts_all):
             for key in sorted(list(data_record.keys())):
                 row.append(data_record[key])
             writer.writerow(row)
+
+
+def create_correlation_matrix(data, out_file):
+    corr = data.corr()
+    fig = plt.figure(figsize=(14, 12))
+    ax = fig.add_subplot(111)
+    cax = ax.matshow(corr, interpolation='nearest')
+    fig.colorbar(cax)
+    plt.xticks(range(len(corr.columns)), corr.columns, rotation='vertical')
+    plt.yticks(range(len(corr.columns)), corr.columns)
+    plt.savefig('{}/{}.png'.format('other', out_file))
 
 
 def save_invalid_data_to_plots(folder, colors, invalid_rows_all):
@@ -155,8 +169,14 @@ if __name__ == '__main__':
     skip_invalid = args.skip_invalid
     skip_important = args.skip_important
     skip_hists = args.skip_hists
+    skip_corr = args.skip_corr
 
     stations = get_stations()
+
+    # however no records about rainfall
+    complete_station = 11894
+    complete_station_data = pd.read_csv(
+        'data/data_{}.csv'.format(complete_station), delimiter=';')
 
     # query and save data
     if (not skip_data):
@@ -191,12 +211,10 @@ if __name__ == '__main__':
         shutil.rmtree('./other/', ignore_errors=True)
         os.mkdir('./other/')
         print('Getting feature importance ...')
-        complete_station = 11894
-        complete_station_data = pd.read_csv(
-            'data/data_{}.csv'.format(complete_station), delimiter=';')
-        y = data.future_temp
+
+        y = complete_station_data.future_temp
         fieldsToDrop = ['future_temp', 'validity_date', 'reference_date']
-        x = data.drop(fieldsToDrop, axis=1)
+        x = complete_station_data.drop(fieldsToDrop, axis=1)
         get_most_important_features(
             x, y, out_file='./other/feature_importance.png')
         print('Finished getting feature importance')
@@ -228,3 +246,6 @@ if __name__ == '__main__':
                 ax = d.hist(c, figsize=(20, 15), bins=100)
                 plt.savefig('hists/{}/{}.png'.format(s, c))
                 plt.close()
+
+    if (not skip_corr):
+        create_correlation_matrix(complete_station_data, 'correlation_matrix')

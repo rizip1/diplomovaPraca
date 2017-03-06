@@ -8,28 +8,35 @@ def get_bias(real, predicted):
     return np.mean(real - predicted)
 
 
-def show_predictions(real_values, predicted_values, shmu_predictions):
-    plt.figure(1)
+def save_predictions(real_values, predicted_values, shmu_predictions):
+    plt.figure(figsize=(12, 6))
+    ax = plt.subplot(111)
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     plt.plot(real_values, 'ok', label='Real values')
     plt.plot(predicted_values, 'or', label='Predicted values (Our model)')
     plt.plot(shmu_predictions, 'og', label='Predicted values (SHMU)')
-    plt.legend(loc=1)
+    plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
     plt.title('Temperature predictions')
     plt.ylabel('Temperature')
     plt.xlabel('Samples')
-    plt.show()
+    plt.savefig('other/predictions.png')
+    plt.close()
 
 
-def show_errors(predicted_errors, shmu_errors):
-    plt.figure(2)
+def save_errors(predicted_errors, shmu_errors):
+    plt.figure(figsize=(12, 6))
+    ax = plt.subplot(111)
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     plt.plot(predicted_errors, 'k', label='predicted errors')
     plt.plot(shmu_errors, 'r', label='shmu errors')
-    plt.legend(loc=1)
+    plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
     plt.title('Temperature errors')
     plt.ylabel('Error')
     plt.xlabel('Samples')
-    # plt.ylim((-30, 30))
-    plt.show()
+    plt.savefig('other/errors.png')
+    plt.close()
 
 
 def get_parser():

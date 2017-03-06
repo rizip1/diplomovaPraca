@@ -1,8 +1,9 @@
 import sklearn.linear_model as lm
 import pandas as pd
+import os
 
-from common import get_bias, show_predictions, get_parser, get_mode_action
-from common import show_errors
+from common import get_bias, save_predictions, get_parser, get_mode_action
+from common import save_errors
 
 
 if __name__ == '__main__':
@@ -10,6 +11,9 @@ if __name__ == '__main__':
 
     parser = get_parser()
     args = parser.parse_args()
+
+    if not os.path.exists('./other'):
+        os.makedirs('./other')
 
     # load command line arguments
     weight = (args.weight_coef, None)[args.weight_coef is None]
@@ -22,8 +26,10 @@ if __name__ == '__main__':
 
     fieldsToDrop = ['future_temp', 'validity_date', 'reference_date']
 
-    # fieldsToDrop.append('rainfall_last_hour')
-    # fieldsToDrop.append('pressure')
+    # usually there are lot of missing data
+    fieldsToDrop.append('rainfall_last_hour')
+
+    fieldsToDrop.append('pressure')
 
     # cause strange errors
     fieldsToDrop.append('humidity')
@@ -55,8 +61,8 @@ if __name__ == '__main__':
     shmu_errors = data.future_temp_shmu[-predictions_count:] - \
         data.future_temp[-predictions_count:]
 
-    show_predictions(real_values=data.future_temp,
+    save_predictions(real_values=data.future_temp,
                      predicted_values=stats['predicted_all'],
                      shmu_predictions=data.future_temp_shmu)
 
-    show_errors(predicted_errors, shmu_errors)
+    save_errors(predicted_errors, shmu_errors)
