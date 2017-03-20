@@ -66,6 +66,10 @@ To override it set '--length' option.""")
     parser.add_argument('--no-intercept', action='store_true', default=False,
                         dest='intercept',
                         help='If set will not use bias term.')
+    parser.add_argument('--model', action='store', dest='model',
+                        default='reg',
+                        choices=['reg', 'svr'],
+                        help="Model to use for predictions:\n")
     return parser
 
 
@@ -76,7 +80,7 @@ def get_mode_action(mode):
     return modes_actions[mode]
 
 
-def window(data, x, y, weight, lr, window_len, slide=False):
+def window(data, x, y, weight, model, window_len, slide=False):
     data_len = x.shape[0]
     predictions_count = data_len - window_len
     mae_predict = 0
@@ -116,10 +120,10 @@ def window(data, x, y, weight, lr, window_len, slide=False):
                                      for j in range(x_train.shape[0])]))
             weights = np.array(weights)
 
-        lr.fit(x_train, y_train, sample_weight=weights)
+        model.fit(x_train, y_train, sample_weight=weights)
 
         # predict values for y
-        y_predicted = lr.predict(x_test)
+        y_predicted = model.predict(x_test)
 
         # add into predicted all
         predicted_all = np.hstack((predicted_all, y_predicted))
@@ -146,12 +150,12 @@ def window(data, x, y, weight, lr, window_len, slide=False):
     }
 
 
-def _sliding_window(data, x, y, weight, lr, window_len):
-    return window(data, x, y, weight, lr, window_len, slide=True)
+def _sliding_window(data, x, y, weight, model, window_len):
+    return window(data, x, y, weight, model, window_len, slide=True)
 
 
-def _extended_window(data, x, y, weight, lr, window_len):
-    return window(data, x, y, weight, lr, window_len, slide=False)
+def _extended_window(data, x, y, weight, model, window_len):
+    return window(data, x, y, weight, model, window_len, slide=False)
 
 
 def _train_set_approach():

@@ -1,4 +1,5 @@
 import sklearn.linear_model as lm
+import sklearn.svm as svm
 import pandas as pd
 import os
 
@@ -20,6 +21,7 @@ if __name__ == '__main__':
     fit_intercept = (True, False)[args.intercept is None]
     mode = args.mode
     length = int(args.length)
+    model_type = args.model
 
     data = pd.read_csv(args.data_file, delimiter=';')
     y = data.future_temp
@@ -42,10 +44,14 @@ if __name__ == '__main__':
 
     x = data.drop(fieldsToDrop, axis=1)
 
-    lr = lm.LinearRegression(fit_intercept=fit_intercept)
+    model = None
+    if (model_type == 'svr'):
+        model = svm.SVR(C=300, kernel='linear')
+    elif(model_type == 'reg'):
+        model = lm.LinearRegression(fit_intercept=fit_intercept)
 
     mode_action = get_mode_action(mode)
-    stats = mode_action(data, x, y, weight, lr, length)
+    stats = mode_action(data, x, y, weight, model, length)
 
     print('BIAS in data {0:.2f}'.format(get_bias(
         real=data.future_temp, predicted=data.future_temp_shmu)))
