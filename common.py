@@ -63,12 +63,15 @@ To override it set '--length' option.""")
     parser.add_argument('--length', action='store', dest='length',
                         default=60,
                         help='Length of window, extended-window or train-set.')
+    parser.add_argument('--lags', action='store', dest='lags',
+                        default=0,
+                        help='Length of window, extended-window or train-set.')
     parser.add_argument('--no-intercept', action='store_true', default=False,
                         dest='intercept',
                         help='If set will not use bias term.')
     parser.add_argument('--model', action='store', dest='model',
                         default='reg',
-                        choices=['reg', 'svr'],
+                        choices=['reg', 'svr', 'rf'],
                         help="Model to use for predictions:\n")
     return parser
 
@@ -80,7 +83,7 @@ def get_mode_action(mode):
     return modes_actions[mode]
 
 
-def window(data, x, y, weight, model, window_len, slide=False):
+def window(data, x, y, weight, model, window_len, lags, slide=False):
     data_len = x.shape[0]
     predictions_count = data_len - window_len
     mae_predict = 0
@@ -91,9 +94,7 @@ def window(data, x, y, weight, model, window_len, slide=False):
     predicted_all = np.array([])
     train_end = window_len
 
-    # Check if all indexes are ok
-    # check if data ok, previous work had some problem with wind or
-    # other feature
+    model_errors = [0] * lags
 
     while (train_end < data_len):
         x_train = x.iloc[start:train_end, :]
@@ -113,6 +114,20 @@ def window(data, x, y, weight, model, window_len, slide=False):
         # where x is in [1,12]
         x_test = x.iloc[train_end:train_end + pred_length, :]
         y_test = y.iloc[train_end:train_end + pred_length]
+
+        if (lags):
+            if (len(model_errors) - 12 - lags >= window_len):
+                for l in range(lags):
+                    column_name = 'lags_{}'.format(l)
+
+                    autoreg = np.array(
+                        model_errors[-(window_len + 12 + l):-(12 + l)])
+                    kwargs = {column_name: autoreg}
+                    x_train = x_train.assign(**kwargs)
+
+                    autoreg = np.array(model_errors[-(pred_length):])
+                    kwargs = {column_name: autoreg}
+                    x_test = x_test.assign(**kwargs)
 
         weights = None
         if (weight):
@@ -135,6 +150,8 @@ def window(data, x, y, weight, model, window_len, slide=False):
         mae_predict += np.sum(abs(y_test - y_predicted))
         mse_predict += np.sum((y_test - y_predicted) ** 2)
 
+        model_errors += list(y_test - y_predicted)
+
         # shift interval for learning
         train_end += pred_length
         if (slide):
@@ -150,12 +167,12 @@ def window(data, x, y, weight, model, window_len, slide=False):
     }
 
 
-def _sliding_window(data, x, y, weight, model, window_len):
-    return window(data, x, y, weight, model, window_len, slide=True)
+def _sliding_window(data, x, y, weight, model, window_len, lags):
+    return window(data, x, y, weight, model, window_len, lags, slide=True)
 
 
-def _extended_window(data, x, y, weight, model, window_len):
-    return window(data, x, y, weight, model, window_len, slide=False)
+def _extended_window(data, x, y, weight, model, window_len, lags):
+    return window(data, x, y, weight, model, window_len, lags, slide=False)
 
 
 def _train_set_approach():

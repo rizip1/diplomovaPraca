@@ -1,5 +1,6 @@
 import sklearn.linear_model as lm
 import sklearn.svm as svm
+import sklearn.ensemble as dt
 import pandas as pd
 import os
 
@@ -22,6 +23,7 @@ if __name__ == '__main__':
     mode = args.mode
     length = int(args.length)
     model_type = args.model
+    lags = int(args.lags)
 
     data = pd.read_csv(args.data_file, delimiter=';')
     y = data.future_temp
@@ -47,11 +49,14 @@ if __name__ == '__main__':
     model = None
     if (model_type == 'svr'):
         model = svm.SVR(C=300, kernel='linear')
-    elif(model_type == 'reg'):
+    elif (model_type == 'reg'):
         model = lm.LinearRegression(fit_intercept=fit_intercept)
+    elif (model_type == 'rf'):
+        model = dt.RandomForestRegressor(
+            min_samples_leaf=5, n_estimators=100, max_depth=5)
 
     mode_action = get_mode_action(mode)
-    stats = mode_action(data, x, y, weight, model, length)
+    stats = mode_action(data, x, y, weight, model, length, lags)
 
     print('BIAS in data {0:.2f}'.format(get_bias(
         real=data.future_temp, predicted=data.future_temp_shmu)))
