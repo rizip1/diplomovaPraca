@@ -15,11 +15,13 @@ for f in os.listdir(prefix):
         for row in reader:
             if (row):
                 row.pop()
-                                
+
                 data = {}
 
                 data['reference_date'] = "{}-{}-{} {}:00:00".format(f[0:4],
-                        f[4:6], f[6:8], f[9:11])
+                                                                    f[4:6],
+                                                                    f[6:8],
+                                                                    f[9:11])
                 data['wheather_station_id'] = row[0]
                 data['rr'] = row[1]
                 data['validity_date'] = row[2]
@@ -33,20 +35,20 @@ for f in os.listdir(prefix):
                 data['snow_rainfall_k'] = float(row[9]) / 100
                 data['snow_rainfall_s'] = float(row[10]) / 100
                 data['snow_rainfall'] = data['snow_rainfall_k'] + \
-                        data['snow_rainfall_s']
+                    data['snow_rainfall_s']
                 data['wind_u'] = float(row[11])
                 data['wind_v'] = float(row[12])
-                
+
                 u = data['wind_u']
                 v = data['wind_v']
-                
+
                 data['wind_speed'] = math.sqrt(u**2 + v**2)
 
                 dd = 180.0 * math.atan2(u, v) / math.pi
                 if (dd < 0):
                     dd = 180 + 180.0 * math.atan2(u, v) / math.pi
                 data['wind_direction'] = dd
-                
+
                 cur = conn.cursor()
                 query = """
                     INSERT INTO forecast (
@@ -64,4 +66,3 @@ for f in os.listdir(prefix):
                     {wind_direction})""".format(**data)
                 cur.execute(query)
 print('Data loaded')
-

@@ -22,4 +22,3 @@ for observation in os.listdir(prefix):
                            wheather_station_id)
                            VALUES  ('{}',{},{},{},{},{},{},{})""".format(*row)
                 cur.execute(query)
-

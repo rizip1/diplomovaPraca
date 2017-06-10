@@ -74,7 +74,7 @@ def save_invalid_data_to_csv(filename, invalid_rows_counts_all):
 
 def create_correlation_matrix(data, out_file):
     corr = data.corr()
-    fig = plt.figure(figsize=(14, 12))
+    fig = plt.figure(figsize=(12, 11))
     ax = fig.add_subplot(111)
     cax = ax.matshow(corr, interpolation='nearest')
     fig.colorbar(cax)
@@ -92,8 +92,15 @@ def save_invalid_data_to_plots(folder, colors, invalid_rows_all):
         fig = plt.figure(figsize=(10, 6))
         ax = plt.subplot(111)
         i = 0
-        for label, value in i_data.items():
-            plt.plot(value, 'o', color=colors[i], label=label)
+        for label, i_data in i_data.items():
+            x = []
+            y = []
+            for pos, value in enumerate(i_data):
+                if (value != 0):
+                    x.append(pos)
+                    y.append(value)
+
+            plt.plot(x, y, 'o', color=colors[i], label=label)
             i += 1
 
         box = ax.get_position()
@@ -147,16 +154,14 @@ def get_most_important_features(x, y, out_file):
     forest.fit(_x, _y)
 
     importances = forest.feature_importances_
-    std = np.std([tree.feature_importances_ for tree in forest.estimators_],
-                 axis=0)
     indices = np.argsort(importances)[::-1]
 
-    plt.figure(figsize=(25, 15))
+    plt.figure(figsize=(13, 10))
     plt.title('Feature importances')
     plt.bar(range(x.shape[1]), importances[indices],
-            color='r', yerr=std[indices], align='center')
+            color='r', align='center')
     plt.xticks(range(x.shape[1]), np.array(x.columns)[indices],
-               rotation='vertical')
+               rotation='horizontal')
     plt.xlim([-1, x.shape[1]])
     plt.savefig(out_file)
     plt.close()
@@ -234,7 +239,7 @@ if __name__ == '__main__':
                         shift_invalid_values, args=(abs(data[c].mean()), c))
 
             # histogram for all features in one figure
-            data.hist(figsize=(35, 15), bins=100)
+            data.hist(figsize=(20, 10), bins=20)
             plt.savefig('hists/complete_hists/{}.png'.format(s))
             plt.close()
 
@@ -243,7 +248,7 @@ if __name__ == '__main__':
             d = data.drop(ignore, axis=1)
             # histogram for separate features
             for c in d.columns:
-                ax = d.hist(c, figsize=(20, 15), bins=100)
+                ax = d.hist(c, figsize=(10, 8), bins=100)
                 plt.savefig('hists/{}/{}.png'.format(s, c))
                 plt.close()
 

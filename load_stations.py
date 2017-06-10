@@ -16,4 +16,3 @@ with open('stations.csv', newline='') as csvfile:
                        latitude, longitude, altitude, name)
                        VALUES  ({},{},{}, {}, '{}')""".format(*row)
             cur.execute(query)
-
