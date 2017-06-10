@@ -178,11 +178,6 @@ if __name__ == '__main__':
 
     stations = get_stations()
 
-    # however no records about rainfall
-    complete_station = 11894
-    complete_station_data = pd.read_csv(
-        'data/data_{}.csv'.format(complete_station), delimiter=';')
-
     # query and save data
     if (not skip_data):
         shutil.rmtree('./data/', ignore_errors=True)
@@ -191,6 +186,11 @@ if __name__ == '__main__':
             print('Processing station {}...'.format(s))
             save_data_for_station(
                 station_id=s, out_file='data/data_{}.csv'.format(s))
+
+    # however no records about rainfall
+    complete_station = 11894
+    complete_station_data = pd.read_csv(
+        'data/data_{}.csv'.format(complete_station), delimiter=';')
 
     # Get invalid data
     if (not skip_invalid):

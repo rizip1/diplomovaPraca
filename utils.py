@@ -13,9 +13,9 @@ def save_predictions(real_values, predicted_values, shmu_predictions):
     ax = plt.subplot(111)
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-    plt.plot(real_values, 'ok', label='Real values')
     plt.plot(predicted_values, 'or', label='Predicted values (Our model)')
     plt.plot(shmu_predictions, 'og', label='Predicted values (SHMU)')
+    plt.plot(real_values, 'ok', label='Real values')
     plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
     plt.title('Temperature predictions')
     plt.ylabel('Temperature')
@@ -76,14 +76,7 @@ To override it set '--length' option.""")
     return parser
 
 
-def get_mode_action(mode):
-    '''
-    Return function to execure given mode.
-    '''
-    return modes_actions[mode]
-
-
-def window(data, x, y, weight, model, window_len, lags, slide=False):
+def predict(data, x, y, weight, model, window_len, lags):
     data_len = x.shape[0]
     predictions_count = data_len - window_len
     mae_predict = 0
@@ -154,8 +147,7 @@ def window(data, x, y, weight, model, window_len, lags, slide=False):
 
         # shift interval for learning
         train_end += pred_length
-        if (slide):
-            start += pred_length
+        start += pred_length
 
     return {
         'mae_predict': mae_predict / predictions_count,
@@ -165,21 +157,3 @@ def window(data, x, y, weight, model, window_len, lags, slide=False):
         'predicted_all': np.array(predicted_all),
         'predictions_count': predictions_count,
     }
-
-
-def _sliding_window(data, x, y, weight, model, window_len, lags):
-    return window(data, x, y, weight, model, window_len, lags, slide=True)
-
-
-def _extended_window(data, x, y, weight, model, window_len, lags):
-    return window(data, x, y, weight, model, window_len, lags, slide=False)
-
-
-def _train_set_approach():
-    pass
-
-modes_actions = {
-    'window': _sliding_window,
-    'extended-window': _extended_window,
-    'train-set': _train_set_approach
-}

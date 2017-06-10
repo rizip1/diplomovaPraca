@@ -4,8 +4,8 @@ import sklearn.ensemble as dt
 import pandas as pd
 import os
 
-from common import get_bias, save_predictions, get_parser, get_mode_action
-from common import save_errors
+from utils import get_bias, save_predictions, get_parser, predict
+from utils import save_errors
 
 
 if __name__ == '__main__':
@@ -55,10 +55,9 @@ if __name__ == '__main__':
         model = dt.RandomForestRegressor(
             min_samples_leaf=5, n_estimators=100, max_depth=5)
 
-    mode_action = get_mode_action(mode)
-    stats = mode_action(data, x, y, weight, model, length, lags)
+    stats = predict(data, x, y, weight, model, length, lags)
 
-    print('BIAS in data {0:.2f}'.format(get_bias(
+    print('BIAS (temperature) in data {0:.2f}'.format(get_bias(
         real=data.future_temp, predicted=data.future_temp_shmu)))
 
     print('MAE SHMU {0:.2f}'.format(stats['mae_shmu']))

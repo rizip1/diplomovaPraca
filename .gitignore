@@ -3,4 +3,8 @@ data/
 *.png
 *.jpg
 *.csv
+bin/
+include/
+lib/
+pip-selfcheck.json
 
