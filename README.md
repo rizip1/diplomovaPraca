@@ -6,6 +6,11 @@ sklearn,
 matplotlib,
 psycopg2 (for postgres database connection)
 
+To install dependencies you can create virtualenv in root folder and run
+```
+pip install -r requirements.txt
+```
+
 # Prediction script
 Example:
 ```
