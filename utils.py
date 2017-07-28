@@ -73,6 +73,10 @@ To override it set '--length' option.""")
                         default='reg',
                         choices=['reg', 'svr', 'rf'],
                         help="Model to use for predictions:\n")
+    parser.add_argument('--temp-day', action='store', dest='temp_day_lag',
+                        default=0,
+                        help='''Number of previous temperatures
+lagged by 24 hours:\n''')
     return parser
 
 
@@ -95,6 +99,7 @@ def predict(data, x, y, weight, model, window_len, lags):
 
         # Check how many prediction we can make within same ref_date
         ref_date = data.reference_date[train_end]
+
         pred_length = 0
         while (data.reference_date[train_end + pred_length] == ref_date):
             pred_length += 1

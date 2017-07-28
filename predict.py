@@ -8,6 +8,22 @@ from utils import get_bias, save_predictions, get_parser, predict
 from utils import save_errors
 
 
+def add_temp_day_lags(data, temp_day_lag):
+    data_size = data.shape[0]
+    new_start = temp_day_lag * 24
+    for i in range(temp_day_lag):
+        # add column of zeros for each lag
+        new_col = 'temp_day_lag_{}'.format(i + 1)
+        data[new_col] = 0  # will set all rows to zero
+
+        start = 24 * (i + 1)
+        for j in range(start, data.shape[0]):
+            data.loc[j, new_col] = data.loc[j - start, 'future_temp']
+
+    # get rid of values that dont have lagged values
+    return data.iloc[new_start:data_size, :].reset_index()
+
+
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
 
@@ -24,8 +40,11 @@ if __name__ == '__main__':
     length = int(args.length)
     model_type = args.model
     lags = int(args.lags)
+    temp_day_lag = int(args.temp_day_lag)
 
     data = pd.read_csv(args.data_file, delimiter=';')
+
+    data = add_temp_day_lags(data, temp_day_lag)
     y = data.future_temp
 
     fieldsToDrop = ['future_temp', 'validity_date', 'reference_date']
