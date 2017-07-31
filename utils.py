@@ -77,6 +77,10 @@ To override it set '--length' option.""")
                         default=0,
                         help='''Number of previous temperatures
 lagged by 24 hours:\n''')
+    parser.add_argument('--temp-hour', action='store', dest='temp_hour_lag',
+                        default=0,
+                        help='''Number of previous temperatures
+lagged by 1 hour:\n''')
     return parser
 
 
