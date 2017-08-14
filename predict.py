@@ -4,9 +4,14 @@ import sklearn.ensemble as dt
 import pandas as pd
 import os
 import re
+import math
 
-from utils import get_bias, save_predictions, get_parser, predict
-from utils import save_errors
+from utils import get_bias, save_predictions, get_parser
+from utils import save_errors, predict_12_window
+
+
+def sigmoid(x):
+    return 1 / (1 + math.exp(-x))
 
 
 def add_temp_day_lags(data, temp_day_lag):
@@ -71,10 +76,9 @@ if __name__ == '__main__':
 
     data = pd.read_csv(args.data_file, delimiter=';')
 
-    data.to_csv('query_data.csv')
-
     data = add_temp_day_lags(data, temp_day_lag)
     data = add_temp_hour_lags(data, temp_hour_lag)
+
     y = data.future_temp
 
     fieldsToDrop = ['future_temp', 'validity_date', 'reference_date']
@@ -94,8 +98,8 @@ if __name__ == '__main__':
     fieldsToDrop.append('wind_direction')
 
     x = data.drop(fieldsToDrop, axis=1)
-    print('columns', x.columns)
-    x.to_csv('x_data.csv')
+
+    print('Features used', x.columns)
 
     model = None
     if (model_type == 'svr'):
@@ -105,7 +109,7 @@ if __name__ == '__main__':
     elif (model_type == 'rf'):
         model = dt.RandomForestRegressor(n_estimators=100, max_depth=5)
 
-    stats = predict(data, x, y, weight, model, length, lags)
+    stats = predict_12_window(data, x, y, weight, model, length, lags)
 
     print('BIAS (temperature) in data {0:.2f}'.format(get_bias(
         real=data.future_temp, predicted=data.future_temp_shmu)))

@@ -13,6 +13,7 @@ def save_data_for_station(station_id, out_file):
         WHERE o.wheather_station_id = {0} AND
             o.wheather_station_id = f.wheather_station_id AND
             f.rr < 13 AND f.rr > 0 AND f.validity_date = o.date
+            and date < '2015-01-01 00:00:00'
          ), current_temp AS (
         SELECT o.temperature as current_temp, f.validity_date,
             f.reference_date, o.humidity, o.wind_direction, o.pressure,
@@ -21,6 +22,7 @@ def save_data_for_station(station_id, out_file):
         WHERE o.wheather_station_id = {0} AND
             o.wheather_station_id = f.wheather_station_id AND
             f.rr < 13 AND f.rr > 0 AND f.reference_date = o.date
+            and reference_date < '2015-01-01 00:00:00'
         )
     SELECT c.reference_date, c.validity_date, c.humidity, c.wind_direction,
         c.current_temp, c.pressure, c.wind_speed, c.rainfall_last_hour,
