@@ -4,6 +4,31 @@ import argparse
 import math
 
 
+def get_best_model(models, x_train, y_train, weights):
+    best_model = None
+    best_score = -float('inf')
+    for m in models:
+        score = -float('inf')
+        if (weights):
+            m.fit(x_train, y_train, sample_weight=weights)
+            score = m.score(x_train, y_train, sample_weight=weights)
+        else:
+            m.fit(x_train, y_train)
+            score = m.score(x_train, y_train)
+        if (score > best_score):
+            best_score = score
+            best_model = m
+    return best_model
+
+
+def get_avg_prediction(models, x_train, y_train, x_test):
+    predicted = 0
+    for m in models:
+        m.fit(x_train, y_train)
+        predicted += m.predict(x_test)
+    return predicted / len(models)
+
+
 def get_bias(real, predicted):
     return np.mean(real - predicted)
 
@@ -71,7 +96,7 @@ To override it set '--length' option.""")
                         help='If set will not use bias term.')
     parser.add_argument('--model', action='store', dest='model',
                         default='reg',
-                        choices=['reg', 'svr', 'rf'],
+                        choices=['reg', 'svr', 'rf', 'nn'],
                         help="Model to use for predictions:\n")
     parser.add_argument('--temp-day', action='store', dest='temp_day_lag',
                         default=0,
@@ -81,10 +106,22 @@ lagged by 24 hours:\n''')
                         default=0,
                         help='''Number of previous temperatures
 lagged by 1 hour:\n''')
+    parser.add_argument('--diff', action='store_true', dest='diff',
+                        default=False,
+                        help='Perform one step difference')
+    parser.add_argument('--step', action='store', dest='step',
+                        default=12,
+                        help='Hour interval between learning examples')
+    parser.add_argument('--norm', action='store_true', dest='norm',
+                        default=False,
+                        help='Normalize with mean and std')
+    parser.add_argument('--avg', action='store_true', dest='average_models',
+                        default=False,
+                        help='Average models')
     return parser
 
 
-def predict(data, x, y, weight, model, window_len, lags):
+def predict_old(data, x, y, weight, model, window_len, lags):
     '''
     Predict by looking window_len timestams before.
     Not sufficient enought better to use 12 * window_len
@@ -173,18 +210,36 @@ def predict(data, x, y, weight, model, window_len, lags):
     }
 
 
-def predict_12_window(data, x, y, weight, model, window_len, lags):
+def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
+            norm=False, average_models=False):
     '''
-    Predict by looking at conditions that happened every 12 hours earlier.
-    window_len determines length of sliding window.
+    Predict by looking at conditions that occured every `interval`
+    hours earlier.
+    The `window_len` determines length of sliding window.
+    Can optionaly use `diff` argument to to perform one step difference
+    on features.
 
-    Base features are measured temperature every window_len * 12 hours
-    earlier and predicted temperature for p hours ahead every
-    window_len * 12 hours earlier.
+    Base features are measured temperature every `window_len * interval`
+    hours earlier and predicted temperature for `p` hours ahead every
+    `window_len * interval` hours earlier.
     '''
-    interval = 12
 
-    data_len = x.shape[0]
+    x_orig = None
+    y_orig = None
+    x_diff = None
+    y_diff = None
+    if (diff):
+        x_orig = x.iloc[interval:]
+        y_orig = y.iloc[interval:]
+        x_diff = x.diff(periods=interval).iloc[interval:]
+        y_diff = y.diff(periods=interval).iloc[interval:]
+    else:
+        x_orig = x
+        y_orig = y
+        x_diff = x
+        y_diff = y
+
+    data_len = x_diff.shape[0]
     predictions_count = data_len - (window_len * interval)
     mae_predict = 0
     mse_predict = 0
@@ -195,7 +250,10 @@ def predict_12_window(data, x, y, weight, model, window_len, lags):
     train_end = window_len * interval
 
     while (train_end < data_len):
-        # Check how many prediction we can make within same ref_date
+        if (len(predicted_all)):
+            print('train_end', train_end, mae_predict /
+                  len(predicted_all), mse_predict / len(predicted_all))
+            # Check how many prediction we can make within same ref_date
         ref_date = data.reference_date[train_end]
 
         pred_length = 0
@@ -206,38 +264,62 @@ def predict_12_window(data, x, y, weight, model, window_len, lags):
                 break
 
         x_train_sets = []
+        means = []
+        stds = []
+        y_train_sets_orig = []
         y_train_sets = []
 
         for i in range(pred_length):
-            x_train_sets.append(x.iloc[start + i:train_end:interval, :])
-            y_train_sets.append(y.iloc[start + i:train_end:interval])
+            x_train = x_diff.iloc[start + i:train_end:interval, :]
+            if (norm):
+                std = x_train.std()
+                mean = x_train.mean()
+                means.append(mean)
+                stds.append(std)
+                x_train = (x_train - mean) / std
+            x_train_sets.append(x_train)
+            y_train_sets_orig.append(y_orig.iloc[start + i:train_end:interval])
+            y_train_sets.append(y_diff.iloc[start + i:train_end:interval])
 
-        x_test = x.iloc[train_end:train_end + pred_length, :]
-        y_test = y.iloc[train_end:train_end + pred_length]
+        x_test = x_diff.iloc[train_end:train_end + pred_length, :]
+
+        x_test_orig = x_orig.iloc[train_end:train_end + pred_length, :]
+        y_test = y_orig.iloc[train_end:train_end + pred_length]
 
         for i in range(pred_length):
+            best_model = None
             weights = None
+            y_predicted = 0
             if (weight):
                 w = list(reversed([math.sqrt(weight ** j)
                                    for j in range(x_train_sets[i].shape[0])]))
                 weights = np.array(w)
 
-            if (weights):
-                model.fit(x_train_sets[i], y_train_sets[
-                          i], sample_weight=weights)
-            else:
-                model.fit(x_train_sets[i], y_train_sets[i])
+            x_test_item = x_test.iloc[i, :]
+            if (norm):
+                x_test_item = (x_test_item - means[i]) / stds[i]
 
-            y_predicted = model.predict(
-                x_test.iloc[i, :].values.reshape(1, -1))
+            if (not average_models):
+                best_model = get_best_model(
+                    models, x_train_sets[i], y_train_sets[i], weights)
+                y_predicted = best_model.predict(
+                    x_test_item.values.reshape(1, -1))
+            else:
+                y_predicted = get_avg_prediction(
+                    models, x_train_sets[i],
+                    y_train_sets[i],
+                    x_test_item.values.reshape(1, -1))
+
+            if (diff):
+                y_predicted += y_train_sets_orig[i].iloc[-1]
 
             # add into predicted_all
             predicted_all = np.hstack((predicted_all, y_predicted))
 
             mae_shmu += np.sum(abs(y_test.iloc[i] -
-                                   x_test.future_temp_shmu.iloc[i]))
+                                   x_test_orig.future_temp_shmu.iloc[i]))
             mse_shmu += np.sum((y_test.iloc[i] -
-                                x_test.future_temp_shmu.iloc[i]) ** 2)
+                                x_test_orig.future_temp_shmu.iloc[i]) ** 2)
 
             mae_predict += np.sum(abs(y_test.iloc[i] - y_predicted))
             mse_predict += np.sum((y_test.iloc[i] - y_predicted) ** 2)

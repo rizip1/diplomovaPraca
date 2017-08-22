@@ -1,13 +1,14 @@
 import sklearn.linear_model as lm
 import sklearn.svm as svm
 import sklearn.ensemble as dt
+import sklearn.neural_network as nn
 import pandas as pd
 import os
 import re
 import math
 
 from utils import get_bias, save_predictions, get_parser
-from utils import save_errors, predict_12_window
+from utils import save_errors, predict
 
 
 def sigmoid(x):
@@ -15,6 +16,9 @@ def sigmoid(x):
 
 
 def add_temp_day_lags(data, temp_day_lag):
+    '''
+    Used for predict_old
+    '''
     data_size = data.shape[0]
     new_start = temp_day_lag * 24
     for i in range(temp_day_lag):
@@ -31,6 +35,9 @@ def add_temp_day_lags(data, temp_day_lag):
 
 
 def add_temp_hour_lags(data, temp_hour_lag):
+    '''
+    Used for predict_old
+    '''
     data_size = data.shape[0]
     new_start = 12 + temp_hour_lag
 
@@ -55,6 +62,64 @@ def add_temp_hour_lags(data, temp_hour_lag):
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
 
 
+def cubic_root(x):
+    if x > 0:
+        return math.pow(x, float(1) / 3)
+    elif x < 0:
+        return -math.pow(abs(x), float(1) / 3)
+    else:
+        return 0
+
+
+def add_func(data):
+    for i in range(data.shape[0]):
+        # data.loc[i, 'test'] = data.loc[i, 'current_temp'] ** 2
+        '''
+        if (data.loc[i, 'current_temp'] == 0):
+            data.loc[i, 'test'] = 0
+        else:
+            data.loc[i, 'test'] = math.log(
+                data.loc[i, 'current_temp'] ** 2, 10)
+        '''
+        # data.loc[i, 'test'] = cubic_root(data.loc[i, 'current_temp'])
+
+        '''
+        data.loc[i, 'test2'] = cubic_root(
+            data.loc[i, 'future_temp_shmu'] - data.loc[i, 'current_temp'])
+        '''
+
+        '''
+        data.loc[i, 'test2'] = math.log(
+            abs(data.loc[i, 'future_temp_shmu'] - data.loc[i, 'current_temp']),
+            2)
+        '''
+
+        '''
+        data.loc[i, 'test2'] = math.pow(
+            data.loc[i, 'future_temp_shmu'] - data.loc[i, 'current_temp'], 2)
+        '''
+
+        '''
+        data.loc[i, 'test2'] = math.pow(
+            data.loc[i, 'future_temp_shmu'] - data.loc[i, 'current_temp'], 3)
+        '''
+
+        '''
+        data.loc[i, 'test2'] = cubic_root(
+            data.loc[i, 'future_temp_shmu'] * data.loc[i, 'current_temp'])
+        '''
+
+        '''
+        data.loc[i, 'test2'] = data.loc[
+            i, 'future_temp_shmu'] * data.loc[i, 'current_temp']
+        '''
+
+        data.loc[i, 'test2'] = math.log(max(0.001, abs(data.loc[
+            i, 'future_temp_shmu'] * data.loc[i, 'current_temp'])), 2)
+
+    return data.reset_index(drop=True)
+
+
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
 
@@ -73,11 +138,18 @@ if __name__ == '__main__':
     lags = int(args.lags)
     temp_day_lag = int(args.temp_day_lag)
     temp_hour_lag = int(args.temp_hour_lag)
+    step = int(args.step)
+    diff = args.diff
+    norm = args.norm
+    average_models = args.average_models
 
     data = pd.read_csv(args.data_file, delimiter=';')
 
     data = add_temp_day_lags(data, temp_day_lag)
     data = add_temp_hour_lags(data, temp_hour_lag)
+    # data = add_func(data)
+
+    # data = data.iloc[2000:3000, :].reset_index(drop=True)
 
     y = data.future_temp
 
@@ -101,15 +173,41 @@ if __name__ == '__main__':
 
     print('Features used', x.columns)
 
-    model = None
+    models = []
     if (model_type == 'svr'):
-        model = svm.SVR(C=300, kernel='linear')
+        models.append(svm.SVR(C=1, kernel='rbf', epsilon=0.1,
+                              gamma=0.05))
+        models.append(svm.SVR(C=1, kernel='rbf', epsilon=0.1,
+                              gamma=0.5))
+        models.append(svm.SVR(C=1, kernel='linear', epsilon=0.1))
     elif (model_type == 'reg'):
-        model = lm.LinearRegression(fit_intercept=fit_intercept)
+        models.append(lm.LinearRegression(fit_intercept=fit_intercept))
     elif (model_type == 'rf'):
-        model = dt.RandomForestRegressor(n_estimators=100, max_depth=5)
+        models.append(dt.RandomForestRegressor(n_estimators=20, max_depth=3))
+    elif (model_type == 'nn'):
+        # gradient descent like
+        '''
+        models.append(nn.MLPRegressor(hidden_layer_sizes=(
+            10,), max_iter=50, learning_rate='constant',
+            learning_rate_init=0.005, batch_size=length,
+            shuffle=True, activation='relu',
+            solver='sgd', alpha=0.001))
+        '''
 
-    stats = predict_12_window(data, x, y, weight, model, length, lags)
+        models.append(nn.MLPRegressor(hidden_layer_sizes=(
+            10,), max_iter=30, activation='logistic',
+            solver='lbfgs', alpha=0.001))
+
+        models.append(nn.MLPRegressor(hidden_layer_sizes=(
+            5,), max_iter=30, activation='relu',
+            solver='lbfgs', alpha=0.001))
+
+        models.append(nn.MLPRegressor(hidden_layer_sizes=(
+            20,), max_iter=15, activation='relu',
+            solver='lbfgs', alpha=0.001))
+
+    stats = predict(data, x, y, weight, models, length, step, diff,
+                    norm, average_models)
 
     print('BIAS (temperature) in data {0:.2f}'.format(get_bias(
         real=data.future_temp, predicted=data.future_temp_shmu)))

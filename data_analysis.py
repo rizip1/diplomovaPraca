@@ -16,21 +16,24 @@ def get_parser():
     '''
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--skip-data', action='store_true', default=False,
-                        dest='skip_data',
-                        help='Will not recreate data files')
-    parser.add_argument('--skip-invalid', action='store_true', default=False,
-                        dest='skip_invalid',
-                        help='Will not recreate invalid data')
-    parser.add_argument('--skip-important', action='store_true', default=False,
-                        dest='skip_important',
-                        help='Will not recreate most important features')
-    parser.add_argument('--skip-hists', action='store_true', default=False,
-                        dest='skip_hists',
-                        help='Will not recreate hists files')
-    parser.add_argument('--skip-corr', action='store_true', default=False,
-                        dest='skip_corr',
-                        help='Will not recreate correlation matrix')
+    parser.add_argument('--data', action='store_true', default=False,
+                        dest='data',
+                        help='Will recreate data files')
+    parser.add_argument('--invalid', action='store_true', default=False,
+                        dest='invalid',
+                        help='Will recreate invalid data')
+    parser.add_argument('--important', action='store_true', default=False,
+                        dest='important',
+                        help='Will recreate most important features')
+    parser.add_argument('--hists', action='store_true', default=False,
+                        dest='hists',
+                        help='Will recreate hists files')
+    parser.add_argument('--corr', action='store_true', default=False,
+                        dest='corr',
+                        help='Will recreate correlation matrix')
+    parser.add_argument('--features', action='store_true', default=False,
+                        dest='features',
+                        help='Will plot features in time')
     return parser
 
 
@@ -70,6 +73,49 @@ def save_invalid_data_to_csv(filename, invalid_rows_counts_all):
             for key in sorted(list(data_record.keys())):
                 row.append(data_record[key])
             writer.writerow(row)
+
+
+def plot_features(data):
+    folder = 'features'
+    shutil.rmtree(folder, ignore_errors=True)
+    os.mkdir(folder)
+    for c in data.columns:
+        os.mkdir('{}/{}'.format(folder, c))
+        # ignore errors for strings features like date
+        fig = plt.figure(figsize=(10, 6))
+        try:
+            plt.plot(data[c])
+            plt.savefig('{}/{}/orig.png'.format(folder, c))
+            plt.close(fig)
+        except:
+            plt.close(fig)
+
+        fig = plt.figure(figsize=(10, 6))
+        try:
+            diff = data[c].diff()
+            plt.plot(diff)
+            plt.savefig('{}/{}/diff_1.png'.format(folder, c))
+            plt.close(fig)
+        except:
+            plt.close(fig)
+
+        fig = plt.figure(figsize=(10, 6))
+        try:
+            diff = data[c].diff(periods=12)
+            plt.plot(diff)
+            plt.savefig('{}/{}/diff_12.png'.format(folder, c))
+            plt.close(fig)
+        except:
+            plt.close(fig)
+
+        fig = plt.figure(figsize=(10, 6))
+        try:
+            diff = data[c].diff(periods=24)
+            plt.plot(diff)
+            plt.savefig('{}/{}/diff_24.png'.format(folder, c))
+            plt.close(fig)
+        except:
+            plt.close(fig)
 
 
 def create_correlation_matrix(data, out_file):
@@ -170,16 +216,17 @@ def get_most_important_features(x, y, out_file):
 if __name__ == '__main__':
     parser = get_parser()
     args = parser.parse_args()
-    skip_data = args.skip_data
-    skip_invalid = args.skip_invalid
-    skip_important = args.skip_important
-    skip_hists = args.skip_hists
-    skip_corr = args.skip_corr
+    create_data = args.data
+    create_invalid = args.invalid
+    create_important = args.important
+    create_hists = args.hists
+    create_corr = args.corr
+    create_features = args.features
 
     stations = get_stations()
 
     # query and save data
-    if (not skip_data):
+    if (create_data):
         shutil.rmtree('./data/', ignore_errors=True)
         os.mkdir('./data')
         for s in stations:
@@ -193,7 +240,7 @@ if __name__ == '__main__':
         'data/data_{}.csv'.format(complete_station), delimiter=';')
 
     # Get invalid data
-    if (not skip_invalid):
+    if (create_invalid):
         invalid_rows_all = {}
         invalid_rows_counts_all = {}
         for s in stations:
@@ -212,7 +259,7 @@ if __name__ == '__main__':
                                    invalid_rows_all=invalid_rows_all)
 
     # Get most important features based on RandomForest training
-    if (not skip_important):
+    if (create_important):
         shutil.rmtree('./other/', ignore_errors=True)
         os.mkdir('./other/')
         print('Getting feature importance ...')
@@ -224,7 +271,7 @@ if __name__ == '__main__':
             x, y, out_file='./other/feature_importance.png')
         print('Finished getting feature importance')
 
-    if (not skip_hists):
+    if (create_hists):
         shutil.rmtree('./hists/', ignore_errors=True)
         os.mkdir('./hists/')
         os.mkdir('./hists/complete_hists/')
@@ -252,5 +299,9 @@ if __name__ == '__main__':
                 plt.savefig('hists/{}/{}.png'.format(s, c))
                 plt.close()
 
-    if (not skip_corr):
+    if (create_corr):
         create_correlation_matrix(complete_station_data, 'correlation_matrix')
+
+    if (create_features):
+        data = pd.read_csv('data/data_11816.csv', delimiter=';')
+        plot_features(data)
