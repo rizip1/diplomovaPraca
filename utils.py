@@ -2,6 +2,31 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 import math
+import re
+import pandas as pd
+
+
+def init_model_errors(interval=24):
+    model_errors = {}
+    for i in range(interval):
+        model_errors[i] = []
+    return model_errors
+
+
+def can_use_autoreg(model_errors, window_len):
+    for key, value in model_errors.items():
+        if (len(value) < window_len + 1):
+            return False
+    return True
+
+
+def get_starting_hour(data, start):
+    ref_date = data.loc[start, 'validity_date']
+    m = re.search(
+        r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
+        ref_date)
+    hour = int(m.group(1))
+    return hour
 
 
 def get_best_model(models, x_train, y_train, weights):
@@ -9,7 +34,7 @@ def get_best_model(models, x_train, y_train, weights):
     best_score = -float('inf')
     for m in models:
         score = -float('inf')
-        if (weights):
+        if (weights is not None):
             m.fit(x_train, y_train, sample_weight=weights)
             score = m.score(x_train, y_train, sample_weight=weights)
         else:
@@ -92,20 +117,28 @@ To override it set '--length' option.""")
                         default=0,
                         help='Length of window, extended-window or train-set.')
     parser.add_argument('--no-intercept', action='store_true', default=False,
-                        dest='intercept',
+                        dest='no_intercept',
                         help='If set will not use bias term.')
     parser.add_argument('--model', action='store', dest='model',
                         default='reg',
-                        choices=['reg', 'svr', 'rf', 'nn'],
+                        choices=['reg', 'svr', 'rf', 'kn', 'nn'
+                                 'ens', 'ens-linear', 'ens-ens'],
                         help="Model to use for predictions:\n")
-    parser.add_argument('--temp-day', action='store', dest='temp_day_lag',
-                        default=0,
-                        help='''Number of previous temperatures
-lagged by 24 hours:\n''')
-    parser.add_argument('--temp-hour', action='store', dest='temp_hour_lag',
-                        default=0,
-                        help='''Number of previous temperatures
-lagged by 1 hour:\n''')
+    parser.add_argument('--shmu-error-p-time', action='store',
+                        dest='shmu_error_p_time',
+                        default='0:1',
+                        help='''Will use shmu error from time when prediction
+was made. First agr specify lags count. For no lag set it eqaul 1.
+Second arg specify lag distance in hours. Deafult is 1.\n''')
+    parser.add_argument('--feature-p-time', action='store',
+                        dest='feature_p_time',
+                        help='''Except input in format lag_count:feature_name.
+The supplied feature will be lagged by count hours from prediction time,
+including each lag.\n''')
+    parser.add_argument('--feature', action='store',
+                        dest='feature',
+                        help='''Except input in format lag_count:lag_by:feature_name.
+The supplied feature will be lagged by count hours, including each lag.\n''')
     parser.add_argument('--diff', action='store_true', dest='diff',
                         default=False,
                         help='Perform one step difference')
@@ -118,100 +151,17 @@ lagged by 1 hour:\n''')
     parser.add_argument('--avg', action='store_true', dest='average_models',
                         default=False,
                         help='Average models')
+    parser.add_argument('--autoreg', action='store_true', dest='autoreg',
+                        default=False,
+                        help='Use autoregression')
+    parser.add_argument('--verbose', action='store_true', dest='verbose',
+                        default=False,
+                        help='Verbose output')
     return parser
 
 
-def predict_old(data, x, y, weight, model, window_len, lags):
-    '''
-    Predict by looking window_len timestams before.
-    Not sufficient enought better to use 12 * window_len
-    predictions.
-    '''
-    data_len = x.shape[0]
-    predictions_count = data_len - window_len
-    mae_predict = 0
-    mse_predict = 0
-    mae_shmu = 0
-    mse_shmu = 0
-    start = 0
-    predicted_all = np.array([])
-    train_end = window_len
-
-    model_errors = [0] * lags
-
-    while (train_end < data_len):
-        x_train = x.iloc[start:train_end, :]
-        y_train = y.iloc[start:train_end]
-
-        # Check how many prediction we can make within same ref_date
-        ref_date = data.reference_date[train_end]
-
-        pred_length = 0
-        while (data.reference_date[train_end + pred_length] == ref_date):
-            pred_length += 1
-            # Out of bounds
-            if (pred_length + train_end >= data_len):
-                break
-
-        # test set if for 1 to 12 hours ahead
-        # if dataset has ended it is 1 to x hours ahead
-        # where x is in [1,12]
-        x_test = x.iloc[train_end:train_end + pred_length, :]
-        y_test = y.iloc[train_end:train_end + pred_length]
-
-        if (lags):
-            if (len(model_errors) - 12 - lags >= window_len):
-                for l in range(lags):
-                    column_name = 'lags_{}'.format(l)
-
-                    autoreg = np.array(
-                        model_errors[-(window_len + 12 + l):-(12 + l)])
-                    kwargs = {column_name: autoreg}
-                    x_train = x_train.assign(**kwargs)
-
-                    autoreg = np.array(model_errors[-(pred_length):])
-                    kwargs = {column_name: autoreg}
-                    x_test = x_test.assign(**kwargs)
-
-        weights = None
-        if (weight):
-            weights = list(reversed([math.sqrt(weight ** j)
-                                     for j in range(x_train.shape[0])]))
-            weights = np.array(weights)
-
-        # values is not needed here, pandas removes Index by default
-        model.fit(x_train.values, y_train)
-
-        # predict values for y
-        y_predicted = model.predict(x_test)
-
-        # add into predicted all
-        predicted_all = np.hstack((predicted_all, y_predicted))
-
-        # -1 index stands for current_temperature column in data
-        mae_shmu += np.sum(abs(y_test - x_test.future_temp_shmu))
-        mse_shmu += np.sum((y_test - x_test.future_temp_shmu) ** 2)
-
-        mae_predict += np.sum(abs(y_test - y_predicted))
-        mse_predict += np.sum((y_test - y_predicted) ** 2)
-        model_errors += list(y_test - y_predicted)
-
-        # shift interval for learning
-        train_end += pred_length
-        start += pred_length
-
-    return {
-        'mae_predict': mae_predict / predictions_count,
-        'mae_shmu': mae_shmu / predictions_count,
-        'mse_predict': mse_predict / predictions_count,
-        'mse_shmu': mse_shmu / predictions_count,
-        'predicted_all': np.array(predicted_all),
-        'predictions_count': predictions_count,
-    }
-
-
 def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
-            norm=False, average_models=False):
+            norm=False, average_models=False, autoreg=False, verbose=False):
     '''
     Predict by looking at conditions that occured every `interval`
     hours earlier.
@@ -248,9 +198,13 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
     start = 0
     predicted_all = np.array([])
     train_end = window_len * interval
+    model_errors = init_model_errors(interval)
+    model_bias = 0
+
+    autoreg_ok = False
 
     while (train_end < data_len):
-        if (len(predicted_all)):
+        if (verbose and len(predicted_all)):
             print('train_end', train_end, mae_predict /
                   len(predicted_all), mse_predict / len(predicted_all))
             # Check how many prediction we can make within same ref_date
@@ -269,19 +223,37 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         y_train_sets_orig = []
         y_train_sets = []
 
+        starting_hour = get_starting_hour(data, train_end)
+
         for i in range(pred_length):
             x_train = x_diff.iloc[start + i:train_end:interval, :]
+            if (autoreg and (autoreg_ok or can_use_autoreg(model_errors, window_len))):
+                autoreg_ok = True
+                current_hour = starting_hour + i
+                if (current_hour != 0):
+                    current_hour %= interval
+                x_train['auto'] = pd.Series(
+                    model_errors[current_hour][-window_len - 1:-1], index=x_train.index)
             if (norm):
                 std = x_train.std()
                 mean = x_train.mean()
                 means.append(mean)
                 stds.append(std)
                 x_train = (x_train - mean) / std
+
             x_train_sets.append(x_train)
             y_train_sets_orig.append(y_orig.iloc[start + i:train_end:interval])
             y_train_sets.append(y_diff.iloc[start + i:train_end:interval])
 
         x_test = x_diff.iloc[train_end:train_end + pred_length, :]
+        if (autoreg and (autoreg_ok or can_use_autoreg(model_errors, window_len))):
+            to_add = []
+            for i in range(pred_length):
+                current_hour = starting_hour + i
+                if (current_hour != 0):
+                    current_hour %= interval
+                to_add.append(model_errors[current_hour][-1])
+            x_test['auto'] = pd.Series(to_add, index=x_test.index)
 
         x_test_orig = x_orig.iloc[train_end:train_end + pred_length, :]
         y_test = y_orig.iloc[train_end:train_end + pred_length]
@@ -321,8 +293,15 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             mse_shmu += np.sum((y_test.iloc[i] -
                                 x_test_orig.future_temp_shmu.iloc[i]) ** 2)
 
+            current_hour = starting_hour + i
+            if (current_hour != 0):
+                current_hour %= interval
+            model_errors[current_hour].append(
+                (y_test.iloc[i] - y_predicted)[0])
+
             mae_predict += np.sum(abs(y_test.iloc[i] - y_predicted))
             mse_predict += np.sum((y_test.iloc[i] - y_predicted) ** 2)
+            model_bias += (y_test.iloc[i] - y_predicted)[0]
 
         # shift interval for learning
         train_end += pred_length
@@ -335,4 +314,5 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         'mse_shmu': mse_shmu / predictions_count,
         'predicted_all': np.array(predicted_all),
         'predictions_count': predictions_count,
+        'model_bias': model_bias / predictions_count,
     }

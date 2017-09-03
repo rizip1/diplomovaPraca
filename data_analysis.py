@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 import argparse
+import re
 
 from db import save_data_for_station, get_stations
 from sklearn.ensemble import ExtraTreesRegressor
@@ -19,6 +20,9 @@ def get_parser():
     parser.add_argument('--data', action='store_true', default=False,
                         dest='data',
                         help='Will recreate data files')
+    parser.add_argument('--data-missing', action='store_true', default=False,
+                        dest='data_missing',
+                        help='Will check missing files')
     parser.add_argument('--invalid', action='store_true', default=False,
                         dest='invalid',
                         help='Will recreate invalid data')
@@ -222,6 +226,7 @@ if __name__ == '__main__':
     create_hists = args.hists
     create_corr = args.corr
     create_features = args.features
+    create_missing_data = args.data_missing
 
     stations = get_stations()
 
@@ -230,9 +235,29 @@ if __name__ == '__main__':
         shutil.rmtree('./data/', ignore_errors=True)
         os.mkdir('./data')
         for s in stations:
+            prev_hour = None
             print('Processing station {}...'.format(s))
             save_data_for_station(
                 station_id=s, out_file='data/data_{}.csv'.format(s))
+
+    if (create_missing_data):
+        for s in stations:
+            prev_hour = None
+            print('Processing station {}...'.format(s))
+
+            # check for missing data
+            s_data = pd.read_csv('data/data_{}.csv'.format(s), delimiter=';')
+            for j in range(0, s_data.shape[0]):
+                ref_date = s_data.loc[j, 'validity_date']
+                m = re.search(
+                    r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
+                    ref_date)
+                hour = int(m.group(1))
+                if (prev_hour is not None):
+                    if (hour - prev_hour != 1):
+                        if (not (hour == 0 and prev_hour == 23)):
+                            print('missing at pos = ', j)
+                prev_hour = hour
 
     # however no records about rainfall
     complete_station = 11894
