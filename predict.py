@@ -6,12 +6,14 @@ import sklearn.neighbors as ng
 import pandas as pd
 import os
 
+from feature_utils import temperature_prediction_time_var
+from feature_utils import shmu_error_prediction_time_var
 from feature_utils import feature_lagged_by_hours
 from feature_utils import feature_lagged_by_hours_p_time
 from feature_utils import shmu_prediction_time_error
 
 from utils import get_bias, save_predictions, get_parser
-from utils import save_errors, predict
+from utils import save_errors, predict, predict_test
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
@@ -35,12 +37,15 @@ if __name__ == '__main__':
     average_models = args.average_models
     autoreg = args.autoreg
     verbose = args.verbose
+    temperature_var = int(args.temperature_var)
+    shmu_error_var = int(args.shmu_error_var)
 
     # feature switches
     shmu_error_p_time = args.shmu_error_p_time
     splitted = shmu_error_p_time.split(':')
     shmu_error_p_time_lags = int(splitted[0])
     shmu_error_p_time_lag_by = int(splitted[1])
+    shmu_error_p_time_exp = float(splitted[2])
 
     feature_p_time = args.feature_p_time
     feature_p_time_name = None
@@ -66,7 +71,8 @@ if __name__ == '__main__':
 
     data = shmu_prediction_time_error(data,
                                       shmu_error_p_time_lags,
-                                      shmu_error_p_time_lag_by)
+                                      shmu_error_p_time_lag_by,
+                                      shmu_error_p_time_exp)
 
     data = feature_lagged_by_hours_p_time(data,
                                           feature_p_time_name,
@@ -75,8 +81,11 @@ if __name__ == '__main__':
     data = feature_lagged_by_hours(data,
                                    feature_name, feature_lags,
                                    feature_lag_by)
-    # data = add_func(data)
 
+    data = temperature_prediction_time_var(data, temperature_var)
+    data = shmu_error_prediction_time_var(data, shmu_error_var)
+
+    # for testing
     # data = data.iloc[15000:, :].reset_index(drop=True)
 
     y = data.future_temp
@@ -98,7 +107,12 @@ if __name__ == '__main__':
     # cause strange errors
     fieldsToDrop.append('wind_direction')
 
+    # cause strange errors
+    # fieldsToDrop.append('current_temp')
+
     x = data.drop(fieldsToDrop, axis=1)
+
+    x.to_csv('current_features.csv')
 
     print('Features used', x.columns)
 
@@ -150,6 +164,8 @@ if __name__ == '__main__':
 
     stats = predict(data, x, y, weight, models, length, step, diff,
                     norm, average_models, autoreg, verbose)
+
+    # stats = predict_test(data, x, y, weight, models, length, step)
 
     print('BIAS (temperature) in data {0:.2f}'.format(get_bias(
         real=data.future_temp, predicted=data.future_temp_shmu)))

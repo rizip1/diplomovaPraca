@@ -1,5 +1,6 @@
 import re
 import math
+import numpy as np
 
 
 def feature_lagged_by_hours_p_time(data, feature, lags):
@@ -52,7 +53,7 @@ def feature_lagged_by_hours(data, feature, lags, lag_by=12):
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
 
 
-def shmu_prediction_time_error(data, lags=1, lag_by=1):
+def shmu_prediction_time_error(data, lags=1, lag_by=1, exp=0):
     '''
     For `lag` = 1 add shmu error in time when prediction
     was created.
@@ -71,10 +72,10 @@ def shmu_prediction_time_error(data, lags=1, lag_by=1):
 
     for i in range(lags):
         # add column of zeros for each lag
-        new_col = 'shmu_pred_err_{}_{}'.format(lag_by, i + 1)
+        new_col = 'shmu_pred_err_{}_{}'.format(i + 1, lag_by)
         data[new_col] = 0  # will set all rows to zero
 
-        start = (i * lag_by) + predictions_ahead + 1
+        start = (i * lag_by) + predictions_ahead
         for j in range(start, data.shape[0]):
             ref_date = data.loc[j, 'validity_date']
             m = re.search(
@@ -85,8 +86,76 @@ def shmu_prediction_time_error(data, lags=1, lag_by=1):
                 hour -= 12
 
             data.loc[j, new_col] = data.loc[
-                j - hour - ((i * lag_by) + 1), 'future_temp_shmu'] - data.loc[
-                j - hour - ((i * lag_by) + 1), 'future_temp']
+                j - hour - ((i * lag_by)), 'future_temp_shmu'] - data.loc[
+                j - hour - ((i * lag_by)), 'future_temp']
+
+            if (exp != 0):
+                value = data.loc[j, new_col]
+                tmp = math.pow(exp, abs(value))
+                if (value < 0):
+                    tmp = -tmp
+                data.loc[j, new_col] = tmp
+
+    # get rid of rows for which we do not have data
+    return data.iloc[new_start:data_size, :].reset_index(drop=True)
+
+
+def temperature_prediction_time_var(data, samples_count):
+    if (samples_count == 0):
+        return data
+    data_size = data.shape[0]
+
+    # add 1 because current temp is calculated from future_temp
+    # TODO rework this later
+    new_start = 12 + samples_count + 1
+
+    new_col = 'temperature_var_{}'.format(samples_count)
+    data[new_col] = 0  # will set all rows to zero
+
+    for j in range(new_start, data_size):
+        ref_date = data.loc[j, 'validity_date']
+        m = re.search(
+            r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
+            ref_date)
+        hour = int(m.group(1))
+        if (hour > 12):
+            hour -= 12
+
+        temp_start = j - hour - (samples_count + 1)
+        temp_end = j - hour - 1
+        data.loc[j, new_col] = np.var(
+            data.loc[temp_start: temp_end, 'future_temp'])
+
+    # get rid of rows for which we do not have data
+    return data.iloc[new_start:data_size, :].reset_index(drop=True)
+
+
+def shmu_error_prediction_time_var(data, samples_count):
+    if (samples_count == 0):
+        return data
+    data_size = data.shape[0]
+
+    new_start = 12 + samples_count
+
+    new_col = 'shmu_error_var_{}'.format(samples_count)
+    data[new_col] = 0  # will set all rows to zero
+
+    for j in range(new_start, data_size):
+        ref_date = data.loc[j, 'validity_date']
+        m = re.search(
+            r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
+            ref_date)
+        hour = int(m.group(1))
+        if (hour > 12):
+            hour -= 12
+
+        var_values = []
+        for i in range(samples_count):
+            sh_error = data.loc[j - hour - i, 'future_temp'] - \
+                data.loc[j - hour - i, 'future_temp_shmu']
+            var_values.append(sh_error)
+
+        data.loc[j, new_col] = np.var(var_values)
 
     # get rid of rows for which we do not have data
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
@@ -152,7 +221,9 @@ def non_linear_transform(data):
         data.loc[i, 'test2'] = math.log(max(0.001, abs(data.loc[
             i, 'future_temp_shmu'] * data.loc[i, 'current_temp'])), 2)
         '''
+        '''
         data.loc[i, 'test2'] = data.loc[
             i, 'future_temp_shmu'] - data.loc[i, 'current_temp']
+        '''
 
     return data.reset_index(drop=True)
