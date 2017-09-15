@@ -43,18 +43,20 @@ def get_parser():
 
 def shift_invalid_values(x, mean, column):
     if (x == -999):
-        if (column == 'pressure'):
+        if (column == 'current_pressure' or column == 'p_time_pressure'):
             return 200000
         if (column == 'current_temp' or column == 'future_temp' or
-                column == 'future_temp_shmu'):
+                column == 'future_temp_shmu' or column == 'p_time_temp'):
             return 60
-        if (column == 'humidity'):
+        if (column == 'current_humidity' or column == 'p_time_humidity'):
             return 200
-        if (column == 'wind_direction'):
+        if (column == 'current_wind_direction' or
+                column == 'p_time_wind_direction'):
             return 600
-        if (column == 'wind_speed'):
+        if (column == 'current_wind_speed' or column == 'p_time_wind_speed'):
             return 100
-        if (column == 'rainfall_last_hour'):
+        if (column == 'current_rainfall_last_hour' or
+                column == 'p_time_rainfall_last_hour'):
             return 50
         return mean * 2
     return x
@@ -206,7 +208,7 @@ def get_most_important_features(x, y, out_file):
     importances = forest.feature_importances_
     indices = np.argsort(importances)[::-1]
 
-    plt.figure(figsize=(13, 10))
+    plt.figure(figsize=(20, 10))
     plt.title('Feature importances')
     plt.bar(range(x.shape[1]), importances[indices],
             color='r', align='center')
@@ -246,6 +248,9 @@ if __name__ == '__main__':
             print('Processing station {}...'.format(s))
 
             # check for missing data
+
+            # todo this do not check when data are missing for
+            # whole day or month
             s_data = pd.read_csv('data/data_{}.csv'.format(s), delimiter=';')
             for j in range(0, s_data.shape[0]):
                 ref_date = s_data.loc[j, 'validity_date']
@@ -256,13 +261,17 @@ if __name__ == '__main__':
                 if (prev_hour is not None):
                     if (hour - prev_hour != 1):
                         if (not (hour == 0 and prev_hour == 23)):
-                            print('missing at pos = ', j)
+                            print('missing data at pos = ', j, hour)
                 prev_hour = hour
 
     # however no records about rainfall
     complete_station = 11894
     complete_station_data = pd.read_csv(
         'data/data_{}.csv'.format(complete_station), delimiter=';')
+    fieldsToDrop = ['future_temp', 'validity_date', 'reference_date',
+                    'p_time_temp', 'p_time_wind_speed',
+                    'p_time_wind_direction', 'p_time_humidity',
+                    'p_time_rainfall_last_hour', 'p_time_pressure']
 
     # Get invalid data
     if (create_invalid):
@@ -271,6 +280,7 @@ if __name__ == '__main__':
         for s in stations:
             print('Processing invalid data for station {}'.format(s))
             data = pd.read_csv('data/data_{}.csv'.format(s), delimiter=';')
+            data = data.drop(fieldsToDrop, axis=1)
             invalid_rows, invalid_rows_counts = get_invalid_rows(data)
             invalid_rows_all[s] = invalid_rows
             invalid_rows_counts_all[s] = invalid_rows_counts
@@ -290,7 +300,6 @@ if __name__ == '__main__':
         print('Getting feature importance ...')
 
         y = complete_station_data.future_temp
-        fieldsToDrop = ['future_temp', 'validity_date', 'reference_date']
         x = complete_station_data.drop(fieldsToDrop, axis=1)
         get_most_important_features(
             x, y, out_file='./other/feature_importance.png')
@@ -303,12 +312,11 @@ if __name__ == '__main__':
         for s in stations:
             print('Creating hists for station {}'.format(s))
             data = pd.read_csv('data/data_{}.csv'.format(s), delimiter=';')
+            data = data.drop(fieldsToDrop, axis=1)
 
-            ignore = ['validity_date', 'reference_date']
             for c in data.columns:
-                if (c not in ignore):
-                    data[c] = data[c].apply(
-                        shift_invalid_values, args=(abs(data[c].mean()), c))
+                data[c] = data[c].apply(
+                    shift_invalid_values, args=(abs(data[c].mean()), c))
 
             # histogram for all features in one figure
             data.hist(figsize=(20, 10), bins=20)
@@ -317,16 +325,18 @@ if __name__ == '__main__':
 
             os.mkdir('hists/{}/'.format(s))
 
-            d = data.drop(ignore, axis=1)
             # histogram for separate features
-            for c in d.columns:
-                ax = d.hist(c, figsize=(10, 8), bins=100)
+            for c in data.columns:
+                ax = data.hist(c, figsize=(10, 8), bins=100)
                 plt.savefig('hists/{}/{}.png'.format(s, c))
                 plt.close()
 
     if (create_corr):
-        create_correlation_matrix(complete_station_data, 'correlation_matrix')
+        create_correlation_matrix(
+            complete_station_data.drop(fieldsToDrop, axis=1),
+            'correlation_matrix')
 
     if (create_features):
         data = pd.read_csv('data/data_11816.csv', delimiter=';')
+        data = data.drop(fieldsToDrop, axis=1)
         plot_features(data)

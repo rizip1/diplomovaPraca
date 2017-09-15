@@ -14,21 +14,54 @@ def save_data_for_station(station_id, out_file):
             o.wheather_station_id = f.wheather_station_id AND
             f.rr < 13 AND f.rr > 0 AND f.validity_date = o.date
             and date < '2015-01-01 00:00:00'
-         ), current_temp AS (
-        SELECT o.temperature as current_temp, f.validity_date,
-            f.reference_date, o.humidity, o.wind_direction, o.pressure,
-            o.wind_speed, o.rainfall_last_hour
+         ), p_time_observations AS (
+        SELECT
+        f.validity_date,
+        f.reference_date,
+        o.humidity as p_time_humidity,
+        o.wind_direction as p_time_wind_direction,
+        o.pressure as p_time_pressure,
+        o.wind_speed as p_time_wind_speed,
+        o.rainfall_last_hour as p_time_rainfall_last_hour,
+        o.temperature as p_time_temp
         FROM observations o, forecast f
         WHERE o.wheather_station_id = {0} AND
             o.wheather_station_id = f.wheather_station_id AND
             f.rr < 13 AND f.rr > 0 AND f.reference_date = o.date
             and reference_date < '2015-01-01 00:00:00'
+        ), current_observations AS (
+        SELECT
+            o.temperature as current_temp,
+            o.humidity as current_humidity,
+            o.wind_direction as current_wind_direction,
+            o.pressure as current_pressure,
+            o.wind_speed as current_wind_speed,
+            o.rainfall_last_hour as current_rainfall_last_hour,
+            o.date as observation_date
+        FROM observations o
+            WHERE o.wheather_station_id = {0} and date < '2015-01-01 00:00:00'
         )
-    SELECT c.reference_date, c.validity_date, c.humidity, c.wind_direction,
-        c.current_temp, c.pressure, c.wind_speed, c.rainfall_last_hour,
-        f.future_temp_shmu, f.future_temp
-    FROM current_temp c, future_temp f
-    WHERE c.validity_date = f.validity_date
+    SELECT
+    c.reference_date,
+    c.validity_date,
+    c.p_time_temp,
+    c.p_time_humidity,
+    c.p_time_wind_direction,
+    c.p_time_pressure,
+    c.p_time_wind_speed,
+    c.p_time_rainfall_last_hour,
+    f.future_temp_shmu,
+    f.future_temp,
+    co.current_temp,
+    co.current_humidity,
+    co.current_wind_direction,
+    co.current_pressure,
+    co.current_wind_speed,
+    co.current_rainfall_last_hour
+    FROM p_time_observations c, future_temp f, current_observations co
+    WHERE
+        c.validity_date = f.validity_date and
+        co.observation_date = c.validity_date - interval '1' hour
     ORDER BY c.reference_date, c.validity_date
     '''.format(station_id)
 

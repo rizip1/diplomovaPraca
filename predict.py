@@ -50,9 +50,11 @@ if __name__ == '__main__':
     feature_p_time = args.feature_p_time
     feature_p_time_name = None
     feature_p_time_lags = 0
+    feature_p_time_lag_by = 0
     if (feature_p_time is not None):
         splitted = feature_p_time.split(':')
-        feature_p_time_name = splitted[1]
+        feature_p_time_name = splitted[2]
+        feature_p_time_lag_by = int(splitted[1])
         feature_p_time_lags = int(splitted[0])
 
     feature = args.feature
@@ -76,7 +78,8 @@ if __name__ == '__main__':
 
     data = feature_lagged_by_hours_p_time(data,
                                           feature_p_time_name,
-                                          feature_p_time_lags)
+                                          feature_p_time_lags,
+                                          feature_p_time_lag_by)
 
     data = feature_lagged_by_hours(data,
                                    feature_name, feature_lags,
@@ -86,29 +89,33 @@ if __name__ == '__main__':
     data = shmu_error_prediction_time_var(data, shmu_error_var)
 
     # for testing
-    # data = data.iloc[15000:, :].reset_index(drop=True)
+    # data = data.iloc[:13000, :].reset_index(drop=True)
 
     y = data.future_temp
 
-    fieldsToDrop = ['future_temp', 'validity_date', 'reference_date']
-    # fieldsToDrop = ['future_temp', 'reference_date']
+    '''
+    fieldsToDrop = ['p_time_temp', 'p_time_humidity', 'p_time_pressure',
+                    'p_time_rainfall_last_hour', 'p_time_wind_speed',
+                    'p_time_wind_direction']
 
-    # usually there are lot of missing data
-    fieldsToDrop.append('rainfall_last_hour')
+    '''
+    fieldsToDrop = ['current_temp', 'current_humidity', 'current_pressure',
+                    'current_rainfall_last_hour', 'current_wind_speed',
+                    'current_wind_direction']
 
-    fieldsToDrop.append('pressure')
+    fieldsToDrop.append('future_temp')
+    fieldsToDrop.append('validity_date')
+    fieldsToDrop.append('reference_date')
 
-    # cause strange errors
-    fieldsToDrop.append('humidity')
+    fieldsToDrop.append('p_time_rainfall_last_hour')
 
-    # cause strange errors
-    fieldsToDrop.append('wind_speed')
+    fieldsToDrop.append('p_time_humidity')
 
-    # cause strange errors
-    fieldsToDrop.append('wind_direction')
+    fieldsToDrop.append('p_time_pressure')
 
-    # cause strange errors
-    # fieldsToDrop.append('current_temp')
+    fieldsToDrop.append('p_time_wind_speed')
+
+    fieldsToDrop.append('p_time_wind_direction')
 
     x = data.drop(fieldsToDrop, axis=1)
 

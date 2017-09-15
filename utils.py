@@ -133,7 +133,7 @@ Second arg specifies lag distance in hours. Default is 1.
 Third arg specifies exponent func, 0 means no exponent func. \n''')
     parser.add_argument('--feature-p-time', action='store',
                         dest='feature_p_time',
-                        help='''Except input in format lag_count:feature_name.
+                        help='''Except input in format lag_count:lag_by:feature_name.
 The supplied feature will be lagged by count hours from prediction time,
 including each lag.\n''')
     parser.add_argument('--feature', action='store',

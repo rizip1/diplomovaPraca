@@ -3,23 +3,23 @@ import math
 import numpy as np
 
 
-def feature_lagged_by_hours_p_time(data, feature, lags):
+def feature_lagged_by_hours_p_time(data, feature, lags, lag_by=12):
     '''
     Add feature lagged by hours from prediction time
     '''
 
-    if (lags == 0 or feature is None):
+    if (lags == 0 or feature is None or lag_by == 0):
         return data
 
     data_size = data.shape[0]
-    new_start = 12 + lags
+    new_start = lag_by * lags
 
     for i in range(lags):
         # add column of zeros for each lag
-        new_col = '{}_lag_p_time_{}'.format(feature, i + 1)
+        new_col = '{}_lag_p_time_{}_{}'.format(feature, i + 1, lag_by)
         data[new_col] = 0  # will set all rows to zero
 
-        start = i + 12 + 1
+        start = (i + 1) * lag_by + lag_by
         for j in range(start, data.shape[0]):
             ref_date = data.loc[j, 'validity_date']
             m = re.search(
@@ -29,7 +29,12 @@ def feature_lagged_by_hours_p_time(data, feature, lags):
             if (hour > 12):
                 hour -= 12
 
-            data.loc[j, new_col] = data.loc[j - hour - (i + 1), feature]
+            # this is because otherwise we would get one time step before
+            # required record, ok for shmu temp error
+            hour += 1
+
+            data.loc[j, new_col] = data.loc[
+                j - hour - ((i + 1) * lag_by), feature]
 
     # get rid of values that dont have lagged values
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
@@ -159,10 +164,6 @@ def shmu_error_prediction_time_var(data, samples_count):
 
     # get rid of rows for which we do not have data
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
-
-
-def sigmoid(x):
-    return 1 / (1 + math.exp(-x))
 
 
 def cubic_root(x):
