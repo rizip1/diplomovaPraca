@@ -140,10 +140,11 @@ including each lag.\n''')
                         dest='feature',
                         help='''Except input in format lag_count:lag_by:feature_name.
 The supplied feature will be lagged by count hours, including each lag.\n''')
-    parser.add_argument('--temperature_var', action='store',
+    parser.add_argument('--temperature-var', action='store',
                         default=0,
                         dest='temperature_var',
-                        help='''TODO.\n''')
+                        help='''Add temperature variance from
+time when prediction was made and arg-1 hours before.\n''')
     parser.add_argument('--shmu-error-var', action='store',
                         default=0,
                         dest='shmu_error_var',

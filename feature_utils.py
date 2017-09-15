@@ -110,9 +110,7 @@ def temperature_prediction_time_var(data, samples_count):
         return data
     data_size = data.shape[0]
 
-    # add 1 because current temp is calculated from future_temp
-    # TODO rework this later
-    new_start = 12 + samples_count + 1
+    new_start = 12 + samples_count
 
     new_col = 'temperature_var_{}'.format(samples_count)
     data[new_col] = 0  # will set all rows to zero
@@ -126,10 +124,10 @@ def temperature_prediction_time_var(data, samples_count):
         if (hour > 12):
             hour -= 12
 
-        temp_start = j - hour - (samples_count + 1)
-        temp_end = j - hour - 1
+        temp_start = j - hour - samples_count + 2
+        temp_end = j - hour + 2  # last item is not included
         data.loc[j, new_col] = np.var(
-            data.loc[temp_start: temp_end, 'future_temp'])
+            data.loc[temp_start: temp_end, 'current_temp'])
 
     # get rid of rows for which we do not have data
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
