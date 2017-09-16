@@ -6,6 +6,15 @@ import re
 import pandas as pd
 
 
+def contains_missing_data(x_train, y_train, x_test, y_test):
+    missing_data_value = -999
+
+    return (x_train.__contains__(missing_data_value) or
+            y_train.__contains__(missing_data_value) or
+            x_test.__contains__(missing_data_value) or
+            y_test.__contains__(missing_data_value))
+
+
 def init_model_errors(interval=24):
     model_errors = {}
     for i in range(interval):
@@ -201,7 +210,7 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         y_diff = y
 
     data_len = x_diff.shape[0]
-    predictions_count = data_len - (window_len * interval)
+    predictions_made = 0
     mae_predict = 0
     mse_predict = 0
     mae_shmu = 0
@@ -273,9 +282,16 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         y_test = y_orig.iloc[train_end:train_end + pred_length]
 
         for i in range(pred_length):
+            if (contains_missing_data(
+                    x_train_sets[i].values, y_train_sets[i].values,
+                    x_test.iloc[i].values, np.matrix(y_test.iloc[i]))):
+                continue
+
             best_model = None
             weights = None
             y_predicted = 0
+            predictions_made += 1
+
             if (weight):
                 w = list(reversed([math.sqrt(weight ** j)
                                    for j in range(x_train_sets[i].shape[0])]))
@@ -322,13 +338,13 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         start += pred_length
 
     return {
-        'mae_predict': mae_predict / predictions_count,
-        'mae_shmu': mae_shmu / predictions_count,
-        'mse_predict': mse_predict / predictions_count,
-        'mse_shmu': mse_shmu / predictions_count,
+        'mae_predict': mae_predict / predictions_made,
+        'mae_shmu': mae_shmu / predictions_made,
+        'mse_predict': mse_predict / predictions_made,
+        'mse_shmu': mse_shmu / predictions_made,
         'predicted_all': np.array(predicted_all),
-        'predictions_count': predictions_count,
-        'model_bias': model_bias / predictions_count,
+        'predictions_count': predictions_made,
+        'model_bias': model_bias / predictions_made,
     }
 
 
