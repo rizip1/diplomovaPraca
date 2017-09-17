@@ -83,7 +83,7 @@ def save_predictions(real_values, predicted_values, shmu_predictions):
     plt.close()
 
 
-def save_errors(predicted_errors, shmu_errors):
+def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae):
     plt.figure(figsize=(12, 6))
     ax = plt.subplot(111)
     box = ax.get_position()
@@ -95,6 +95,19 @@ def save_errors(predicted_errors, shmu_errors):
     plt.ylabel('Error')
     plt.xlabel('Samples')
     plt.savefig('other/errors.png')
+    plt.close()
+
+    plt.figure(figsize=(12, 6))
+    ax = plt.subplot(111)
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    plt.plot(cum_mse, 'k', label='cummulative mse')
+    plt.plot(cum_mae, 'r', label='cummulative mae')
+    plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
+    plt.title('Cummulative errors')
+    plt.ylabel('Error')
+    plt.xlabel('Samples')
+    plt.savefig('other/cum_errors.png')
     plt.close()
 
 
@@ -218,15 +231,18 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
     start = 0
     predicted_all = np.array([])
     train_end = window_len * interval
-    model_errors = init_model_errors(interval)
+    model_errors = init_model_errors(24)
     model_bias = 0
+
+    cum_mse = []
+    cum_mae = []
 
     autoreg_ok = False
 
     while (train_end < data_len):
-        if (verbose and len(predicted_all)):
+        if (verbose and predictions_made > 0):
             print('train_end', train_end, mae_predict /
-                  len(predicted_all), mse_predict / len(predicted_all))
+                  predictions_made, mse_predict / predictions_made)
             # Check how many prediction we can make within same ref_date
         ref_date = data.reference_date[train_end]
 
@@ -250,9 +266,7 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             if (autoreg and (autoreg_ok or can_use_autoreg(model_errors,
                                                            window_len))):
                 autoreg_ok = True
-                current_hour = starting_hour + i
-                if (current_hour != 0):
-                    current_hour %= interval
+                current_hour = (starting_hour + i) % 24
                 x_train['auto'] = pd.Series(
                     model_errors[current_hour][-window_len - 1:-1],
                     index=x_train.index)
@@ -272,9 +286,7 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
                                                        window_len))):
             to_add = []
             for i in range(pred_length):
-                current_hour = starting_hour + i
-                if (current_hour != 0):
-                    current_hour %= interval
+                current_hour = (starting_hour + i) % 24
                 to_add.append(model_errors[current_hour][-1])
             x_test['auto'] = pd.Series(to_add, index=x_test.index)
 
@@ -290,7 +302,6 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             best_model = None
             weights = None
             y_predicted = 0
-            predictions_made += 1
 
             if (weight):
                 w = list(reversed([math.sqrt(weight ** j)
@@ -315,6 +326,16 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             if (diff):
                 y_predicted += y_train_sets_orig[i].iloc[-1]
 
+            current_hour = (starting_hour + i) % 24
+
+            model_errors[current_hour].append(
+                (y_test.iloc[i] - y_predicted)[0])
+
+            if (autoreg and not autoreg_ok):
+                continue
+
+            predictions_made += 1
+
             # add into predicted_all
             predicted_all = np.hstack((predicted_all, y_predicted))
 
@@ -323,15 +344,12 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             mse_shmu += np.sum((y_test.iloc[i] -
                                 x_test_orig.future_temp_shmu.iloc[i]) ** 2)
 
-            current_hour = starting_hour + i
-            if (current_hour != 0):
-                current_hour %= interval
-            model_errors[current_hour].append(
-                (y_test.iloc[i] - y_predicted)[0])
-
             mae_predict += np.sum(abs(y_test.iloc[i] - y_predicted))
             mse_predict += np.sum((y_test.iloc[i] - y_predicted) ** 2)
             model_bias += (y_test.iloc[i] - y_predicted)[0]
+
+            cum_mse.append(mse_predict / predictions_made)
+            cum_mae.append(mae_predict / predictions_made)
 
         # shift interval for learning
         train_end += pred_length
@@ -345,6 +363,8 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         'predicted_all': np.array(predicted_all),
         'predictions_count': predictions_made,
         'model_bias': model_bias / predictions_made,
+        'cum_mse': cum_mse,
+        'cum_mae': cum_mae,
     }
 
 

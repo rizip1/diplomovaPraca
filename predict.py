@@ -185,6 +185,9 @@ if __name__ == '__main__':
 
     predicted = stats['predicted_all']
     predictions_count = stats['predictions_count']
+    cum_mse = stats['cum_mse']
+    cum_mae = stats['cum_mae']
+
     predicted_errors = predicted - data.future_temp[-predictions_count:]
     shmu_errors = data.future_temp_shmu[-predictions_count:] - \
         data.future_temp[-predictions_count:]
@@ -193,4 +196,4 @@ if __name__ == '__main__':
                      predicted_values=stats['predicted_all'],
                      shmu_predictions=data.future_temp_shmu)
 
-    save_errors(predicted_errors, shmu_errors)
+    save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae)
