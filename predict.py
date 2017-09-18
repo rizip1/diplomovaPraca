@@ -35,7 +35,7 @@ if __name__ == '__main__':
     diff = args.diff
     norm = args.norm
     average_models = args.average_models
-    autoreg = args.autoreg
+    autocorrect = args.autocorrect
     verbose = args.verbose
     temperature_var = int(args.temperature_var)
     shmu_error_var = int(args.shmu_error_var)
@@ -170,7 +170,7 @@ if __name__ == '__main__':
         models.append(dt.RandomForestRegressor(n_estimators=20, max_depth=2))
 
     stats = predict(data, x, y, weight, models, length, step, diff,
-                    norm, average_models, autoreg, verbose)
+                    norm, average_models, autocorrect, verbose)
 
     # stats = predict_test(data, x, y, weight, models, length, step)
 

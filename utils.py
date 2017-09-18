@@ -2,8 +2,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 import math
-import re
 import pandas as pd
+
+
+def save_autocorrect_state(model_errors, pred_length, x_train_sets,
+                           x_test):
+    '''
+    Used for testing purpose to check if autocorrection
+    errors are picked the right way.
+    Will finish execution of program when finished.
+    '''
+    pd.Series(model_errors).to_csv('test/model_errors.csv')
+    for i in range(pred_length):
+        x_train_sets[i].to_csv('test/{}.csv'.format(i))
+    x_test.to_csv('test/test.csv')
+    import os
+    os.sys.exit(1)
 
 
 def contains_missing_data(x_train, y_train, x_test, y_test):
@@ -15,27 +29,21 @@ def contains_missing_data(x_train, y_train, x_test, y_test):
             y_test.__contains__(missing_data_value))
 
 
-def init_model_errors(interval=24):
-    model_errors = {}
-    for i in range(interval):
-        model_errors[i] = []
-    return model_errors
+def can_use_autocorrect(model_errors, interval, window_len):
+    return len(model_errors) > (interval * window_len) + 24
 
 
-def can_use_autoreg(model_errors, window_len):
-    for key, value in model_errors.items():
-        if (len(value) < window_len + 1):
-            return False
-    return True
+def get_autocorrect_col(model_errors, pos, interval, window_length):
+    '''
+    only for train data
+    '''
+    autocorrect_col = np.array([])
 
+    for i in range(window_length):
+        autocorrect_col = np.append(
+            autocorrect_col, model_errors[-24 + pos - ((i + 1) * interval)])
 
-def get_starting_hour(data, start):
-    ref_date = data.loc[start, 'validity_date']
-    m = re.search(
-        r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
-        ref_date)
-    hour = int(m.group(1))
-    return hour
+    return np.flip(autocorrect_col, axis=0)
 
 
 def get_best_model(models, x_train, y_train, weights):
@@ -184,9 +192,10 @@ time when prediction was made and arg-1 hours before.\n''')
     parser.add_argument('--avg', action='store_true', dest='average_models',
                         default=False,
                         help='Average models')
-    parser.add_argument('--autoreg', action='store_true', dest='autoreg',
+    parser.add_argument('--autocorrect', action='store_true',
+                        dest='autocorrect',
                         default=False,
-                        help='Use autoregression')
+                        help='Use autocorrection')
     parser.add_argument('--verbose', action='store_true', dest='verbose',
                         default=False,
                         help='Verbose output')
@@ -194,7 +203,8 @@ time when prediction was made and arg-1 hours before.\n''')
 
 
 def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
-            norm=False, average_models=False, autoreg=False, verbose=False):
+            norm=False, average_models=False, autocorrect=False,
+            verbose=False):
     '''
     Predict by looking at conditions that occured every `interval`
     hours earlier.
@@ -231,19 +241,18 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
     start = 0
     predicted_all = np.array([])
     train_end = window_len * interval
-    model_errors = init_model_errors(24)
+    model_errors = np.array([])
+    model_predictions = np.array([])
     model_bias = 0
-
     cum_mse = []
     cum_mae = []
-
-    autoreg_ok = False
 
     while (train_end < data_len):
         if (verbose and predictions_made > 0):
             print('train_end', train_end, mae_predict /
                   predictions_made, mse_predict / predictions_made)
-            # Check how many prediction we can make within same ref_date
+
+        # Check how many prediction we can make within same ref_date
         ref_date = data.reference_date[train_end]
 
         pred_length = 0
@@ -259,17 +268,16 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         y_train_sets_orig = []
         y_train_sets = []
 
-        starting_hour = get_starting_hour(data, train_end)
+        autocorrect_ready = can_use_autocorrect(
+            model_errors, interval, window_len)
 
         for i in range(pred_length):
             x_train = x_diff.iloc[start + i:train_end:interval, :]
-            if (autoreg and (autoreg_ok or can_use_autoreg(model_errors,
-                                                           window_len))):
-                autoreg_ok = True
-                current_hour = (starting_hour + i) % 24
-                x_train['auto'] = pd.Series(
-                    model_errors[current_hour][-window_len - 1:-1],
-                    index=x_train.index)
+            if (autocorrect and autocorrect_ready):
+                autocorrect_col = get_autocorrect_col(model_errors, i,
+                                                      interval, window_len)
+                x_train['autocorrect'] = pd.Series(
+                    autocorrect_col, index=x_train.index)
             if (norm):
                 std = x_train.std()
                 mean = x_train.mean()
@@ -282,16 +290,19 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             y_train_sets.append(y_diff.iloc[start + i:train_end:interval])
 
         x_test = x_diff.iloc[train_end:train_end + pred_length, :]
-        if (autoreg and (autoreg_ok or can_use_autoreg(model_errors,
-                                                       window_len))):
-            to_add = []
-            for i in range(pred_length):
-                current_hour = (starting_hour + i) % 24
-                to_add.append(model_errors[current_hour][-1])
-            x_test['auto'] = pd.Series(to_add, index=x_test.index)
+        if (autocorrect and autocorrect_ready):
+            x_test['autocorrect'] = pd.Series(
+                model_errors[-24:-24 + pred_length], index=x_test.index)
 
         x_test_orig = x_orig.iloc[train_end:train_end + pred_length, :]
         y_test = y_orig.iloc[train_end:train_end + pred_length]
+
+        # for testing purpose
+        '''
+        if (predictions_made > 0):
+            save_autocorrect_state(model_errors, pred_length, x_train_sets,
+                               x_test)
+        '''
 
         for i in range(pred_length):
             if (contains_missing_data(
@@ -326,12 +337,13 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             if (diff):
                 y_predicted += y_train_sets_orig[i].iloc[-1]
 
-            current_hour = (starting_hour + i) % 24
+            model_errors = np.append(
+                model_errors, (y_predicted - y_test.iloc[i])[0])
 
-            model_errors[current_hour].append(
-                (y_test.iloc[i] - y_predicted)[0])
+            model_predictions = np.append(
+                model_predictions, y_predicted)
 
-            if (autoreg and not autoreg_ok):
+            if (autocorrect and not autocorrect_ready):
                 continue
 
             predictions_made += 1
@@ -384,7 +396,7 @@ def predict_test(data, x, y, weight, models, length, step):
         x_train = x.iloc[start:train_end, :]
         y_train = y.iloc[start:train_end]
 
-        # Check how many prediction we can make within same ref_date
+        # check how many prediction we can make within same ref_date
         ref_date = data.reference_date[train_end]
 
         pred_length = 0
