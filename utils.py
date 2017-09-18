@@ -76,13 +76,17 @@ def get_bias(real, predicted):
 
 
 def save_predictions(real_values, predicted_values, shmu_predictions):
+    real_values_x = [i for i in range(
+        len(real_values) - (len(real_values) - len(predicted_values)))]
+
     plt.figure(figsize=(12, 6))
     ax = plt.subplot(111)
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     plt.plot(predicted_values, 'or', label='Predicted values (Our model)')
-    plt.plot(shmu_predictions, 'og', label='Predicted values (SHMU)')
-    plt.plot(real_values, 'ok', label='Real values')
+    # plt.plot(shmu_predictions, 'og', label='Predicted values (SHMU)')
+    plt.plot(real_values_x, real_values[-len(predicted_values):],
+             'ok', label='Real values')
     plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
     plt.title('Temperature predictions')
     plt.ylabel('Temperature')
@@ -250,7 +254,8 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
     while (train_end < data_len):
         if (verbose and predictions_made > 0):
             print('train_end', train_end, mae_predict /
-                  predictions_made, mse_predict / predictions_made)
+                  predictions_made, mse_predict / predictions_made,
+                  model_bias / predictions_made)
 
         # Check how many prediction we can make within same ref_date
         ref_date = data.reference_date[train_end]
