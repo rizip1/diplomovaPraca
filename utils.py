@@ -127,7 +127,7 @@ def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae):
 
 def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             norm=False, average_models=False, autocorrect=False,
-            verbose=False):
+            verbose=False, skip_predictions=0):
     '''
     Predict by looking at conditions that occured every `interval`
     hours earlier.
@@ -156,7 +156,10 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         y_diff = y
 
     data_len = x_diff.shape[0]
+
     predictions_made = 0
+    iterations = 0
+
     mae_predict = 0
     mse_predict = 0
     mae_shmu = 0
@@ -272,6 +275,11 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
                 model_predictions, y_predicted)
 
             if (autocorrect and not autocorrect_ready):
+                continue
+
+            iterations += 1
+
+            if (iterations <= skip_predictions):
                 continue
 
             predictions_made += 1

@@ -84,7 +84,8 @@ time when prediction was made and arg-1 hours before.\n''')
     parser.add_argument('--verbose', action='store_true', dest='verbose',
                         default=False,
                         help='Verbose output')
-    parser.add_argument('--dot', action='store_true', dest='dot',
-                        default=False,
-                        help='Dot product feature')
+    parser.add_argument('--skip-predictions', action='store',
+                        dest='skip_predictions', default=0,
+                        help='''Number of predictions to do not count to final
+model score. Used to compare models with different window lengths.\n''')
     return parser

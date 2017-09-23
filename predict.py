@@ -39,6 +39,7 @@ if __name__ == '__main__':
     autocorrect = args.autocorrect
     verbose = args.verbose
     moments = args.moments
+    skip_predictions = int(args.skip_predictions)
     shmu_error_var = int(args.shmu_error_var)
 
     # feature switches
@@ -171,7 +172,8 @@ if __name__ == '__main__':
         models.append(dt.RandomForestRegressor(n_estimators=20, max_depth=2))
 
     stats = predict(data, x, y, weight, models, length, step, diff,
-                    norm, average_models, autocorrect, verbose)
+                    norm, average_models, autocorrect, verbose,
+                    skip_predictions)
 
     # stats = predict_test(data, x, y, weight, models, length, step)
 
@@ -189,6 +191,8 @@ if __name__ == '__main__':
     cum_mse = stats['cum_mse']
     cum_mae = stats['cum_mae']
     cum_bias = stats['cum_bias']
+
+    print('Predictions count', predictions_count)
 
     predicted_errors = predicted - data.future_temp[-predictions_count:]
     shmu_errors = data.future_temp_shmu[-predictions_count:] - \
