@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import argparse
 import math
 import pandas as pd
+
+from feature_utils import get_autocorrect_func
 
 
 def save_autocorrect_state(model_errors, pred_length, x_train_sets,
@@ -31,19 +32,6 @@ def contains_missing_data(x_train, y_train, x_test, y_test):
 
 def can_use_autocorrect(model_errors, interval, window_len):
     return len(model_errors) > (interval * window_len) + 24
-
-
-def get_autocorrect_col(model_errors, pos, interval, window_length):
-    '''
-    only for train data
-    '''
-    autocorrect_col = np.array([])
-
-    for i in range(window_length):
-        autocorrect_col = np.append(
-            autocorrect_col, model_errors[-24 + pos - ((i + 1) * interval)])
-
-    return np.flip(autocorrect_col, axis=0)
 
 
 def get_best_model(models, x_train, y_train, weights):
@@ -95,6 +83,20 @@ def save_predictions(real_values, predicted_values, shmu_predictions):
     plt.close()
 
 
+def save_bias(cum_bias):
+    plt.figure(figsize=(12, 6))
+    ax = plt.subplot(111)
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    plt.plot(cum_bias, 'r', label='Cummulative bias')
+    plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
+    plt.title('Cummulative bias')
+    plt.ylabel('Bias')
+    plt.xlabel('Prediction id')
+    plt.savefig('other/cum_bias.png')
+    plt.close()
+
+
 def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae):
     plt.figure(figsize=(12, 6))
     ax = plt.subplot(111)
@@ -121,89 +123,6 @@ def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae):
     plt.xlabel('Samples')
     plt.savefig('other/cum_errors.png')
     plt.close()
-
-
-def get_parser():
-    '''
-    Parse command line arguments
-    '''
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--weight', action='store', dest='weight_coef',
-                        help='''Weight coefficient. If none supplied, no
-weights will be used.''', type=float)
-    parser.add_argument('--file', action='store', dest='data_file',
-                        required=True,
-                        help='''Path to data file that will be loaded.''')
-    parser.add_argument('--mode', action='store', dest='mode',
-                        default='window',
-                        choices=['window', 'extended-window', 'train-set'],
-                        help="""Mode to use for predictions:\n
-window = use sliding window
-extended-window = use window that grows over time
-train-set = learn from fixed length train set\n
-Default length for window, extended-window and train-set is 60.
-To override it set '--length' option.""")
-    parser.add_argument('--length', action='store', dest='length',
-                        default=60,
-                        help='Length of window, extended-window or train-set.')
-    parser.add_argument('--lags', action='store', dest='lags',
-                        default=0,
-                        help='Length of window, extended-window or train-set.')
-    parser.add_argument('--no-intercept', action='store_true', default=False,
-                        dest='no_intercept',
-                        help='If set will not use bias term.')
-    parser.add_argument('--model', action='store', dest='model',
-                        default='reg',
-                        choices=['reg', 'svr', 'rf', 'kn', 'nn'
-                                 'ens', 'ens-linear', 'ens-ens'],
-                        help="Model to use for predictions:\n")
-    parser.add_argument('--shmu-error-p-time', action='store',
-                        dest='shmu_error_p_time',
-                        default='0:1:0',
-                        help='''Will use shmu error from time when prediction
-was made. First agr specifies lags count. For no lag set it equal to 1.
-Second arg specifies lag distance in hours. Default is 1.
-Third arg specifies exponent func, 0 means no exponent func. \n''')
-    parser.add_argument('--feature-p-time', action='store',
-                        dest='feature_p_time',
-                        help='''Except input in format lag_count:lag_by:feature_name.
-The supplied feature will be lagged by count hours from prediction time,
-including each lag.\n''')
-    parser.add_argument('--feature', action='store',
-                        dest='feature',
-                        help='''Except input in format lag_count:lag_by:feature_name.
-The supplied feature will be lagged by count hours, including each lag.\n''')
-    parser.add_argument('--temperature-var', action='store',
-                        default=0,
-                        dest='temperature_var',
-                        help='''Add temperature variance from
-time when prediction was made and arg-1 hours before.\n''')
-    parser.add_argument('--shmu-error-var', action='store',
-                        default=0,
-                        dest='shmu_error_var',
-                        help='''Add shmu error variance from
-time when prediction was made and arg-1 hours before.\n''')
-    parser.add_argument('--diff', action='store_true', dest='diff',
-                        default=False,
-                        help='Perform one step difference')
-    parser.add_argument('--step', action='store', dest='step',
-                        default=12,
-                        help='Hour interval between learning examples')
-    parser.add_argument('--norm', action='store_true', dest='norm',
-                        default=False,
-                        help='Normalize with mean and std')
-    parser.add_argument('--avg', action='store_true', dest='average_models',
-                        default=False,
-                        help='Average models')
-    parser.add_argument('--autocorrect', action='store_true',
-                        dest='autocorrect',
-                        default=False,
-                        help='Use autocorrection')
-    parser.add_argument('--verbose', action='store_true', dest='verbose',
-                        default=False,
-                        help='Verbose output')
-    return parser
 
 
 def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
@@ -250,6 +169,9 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
     model_bias = 0
     cum_mse = []
     cum_mae = []
+    cum_bias = []
+
+    autocorrect_func = get_autocorrect_func(autocorrect)
 
     while (train_end < data_len):
         if (verbose and predictions_made > 0):
@@ -279,8 +201,8 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         for i in range(pred_length):
             x_train = x_diff.iloc[start + i:train_end:interval, :]
             if (autocorrect and autocorrect_ready):
-                autocorrect_col = get_autocorrect_col(model_errors, i,
-                                                      interval, window_len)
+                autocorrect_col = autocorrect_func(model_errors, i,
+                                                   interval, window_len)
                 x_train['autocorrect'] = pd.Series(
                     autocorrect_col, index=x_train.index)
             if (norm):
@@ -296,8 +218,9 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
 
         x_test = x_diff.iloc[train_end:train_end + pred_length, :]
         if (autocorrect and autocorrect_ready):
-            x_test['autocorrect'] = pd.Series(
-                model_errors[-24:-24 + pred_length], index=x_test.index)
+            x_test['autocorrect'] = pd.Series(autocorrect_func(
+                model_errors, is_test_set=True,
+                test_set_length=pred_length), index=x_test.index)
 
         x_test_orig = x_orig.iloc[train_end:train_end + pred_length, :]
         y_test = y_orig.iloc[train_end:train_end + pred_length]
@@ -367,6 +290,7 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
 
             cum_mse.append(mse_predict / predictions_made)
             cum_mae.append(mae_predict / predictions_made)
+            cum_bias.append(model_bias / predictions_made)
 
         # shift interval for learning
         train_end += pred_length
@@ -380,8 +304,9 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         'predicted_all': np.array(predicted_all),
         'predictions_count': predictions_made,
         'model_bias': model_bias / predictions_made,
-        'cum_mse': cum_mse,
-        'cum_mae': cum_mae,
+        'cum_mse': cum_mse[200:],
+        'cum_mae': cum_mae[200:],
+        'cum_bias': cum_bias[200:],
     }
 
 

@@ -6,19 +6,20 @@ import sklearn.neighbors as ng
 import pandas as pd
 import os
 
-from feature_utils import temperature_prediction_time_var
+from feature_utils import add_moments
 from feature_utils import shmu_error_prediction_time_var
 from feature_utils import feature_lagged_by_hours
 from feature_utils import feature_lagged_by_hours_p_time
 from feature_utils import shmu_prediction_time_error
 
-from utils import get_bias, save_predictions, get_parser
+from utils import get_bias, save_predictions, save_bias
 from utils import save_errors, predict, predict_test
+from parsers import get_predict_parser
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
 
-    parser = get_parser()
+    parser = get_predict_parser()
     args = parser.parse_args()
 
     if not os.path.exists('./other'):
@@ -37,7 +38,7 @@ if __name__ == '__main__':
     average_models = args.average_models
     autocorrect = args.autocorrect
     verbose = args.verbose
-    temperature_var = int(args.temperature_var)
+    moments = args.moments
     shmu_error_var = int(args.shmu_error_var)
 
     # feature switches
@@ -85,11 +86,11 @@ if __name__ == '__main__':
                                    feature_name, feature_lags,
                                    feature_lag_by)
 
-    data = temperature_prediction_time_var(data, temperature_var)
+    data = add_moments(data, moments)
     data = shmu_error_prediction_time_var(data, shmu_error_var)
 
     # for testing
-    # data = data.iloc[:13000, :].reset_index(drop=True)
+    # data = data.iloc[12:, :].reset_index(drop=True)
 
     y = data.future_temp
 
@@ -121,7 +122,7 @@ if __name__ == '__main__':
 
     x.to_csv('current_features.csv')
 
-    print('Features used', x.columns)
+    print('Features used', x.columns, x.shape)
 
     models = []
     if (model_type == 'svr'):
@@ -187,6 +188,7 @@ if __name__ == '__main__':
     predictions_count = stats['predictions_count']
     cum_mse = stats['cum_mse']
     cum_mae = stats['cum_mae']
+    cum_bias = stats['cum_bias']
 
     predicted_errors = predicted - data.future_temp[-predictions_count:]
     shmu_errors = data.future_temp_shmu[-predictions_count:] - \
@@ -197,3 +199,4 @@ if __name__ == '__main__':
                      shmu_predictions=data.future_temp_shmu)
 
     save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae)
+    save_bias(cum_bias)

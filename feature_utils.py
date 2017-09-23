@@ -1,6 +1,59 @@
 import re
 import math
 import numpy as np
+import pandas as pd
+
+# FEATURES FOR AUTOCORRECT
+
+
+def get_autocorrect_err(model_errors, pos=0, interval=0, window_length=0,
+                        is_test_set=False, test_set_length=0):
+
+    if (is_test_set):
+        return model_errors[-24:-24 + test_set_length]
+
+    autocorrect_col = np.array([])
+
+    for i in range(window_length):
+        autocorrect_col = np.append(
+            autocorrect_col, model_errors[-24 + pos - ((i + 1) * interval)])
+
+    return np.flip(autocorrect_col, axis=0)
+
+
+def get_autocorrect_var(model_errors, pos=0, interval=0, window_length=0,
+                        is_test_set=False, test_set_length=0):
+    autocorrect_col = np.array([])
+
+    if (is_test_set):
+        for i in range(test_set_length):
+            index_day_before = -24 + i
+            errors = model_errors[index_day_before - 11: index_day_before + 1]
+            autocorrect_col = np.append(autocorrect_col,
+                                        np.sum(errors) / np.var(errors))
+        return np.var(errors)
+
+    for i in range(window_length):
+        index_day_before = -24 + pos - ((i + 1) * interval)
+        errors = model_errors[index_day_before - 11: index_day_before + 1]
+        res = np.sum(errors) / np.var(errors)
+        autocorrect_col = np.append(autocorrect_col, res)
+
+    return np.flip(autocorrect_col, axis=0)
+
+
+autocorrect_map = {
+    'err': get_autocorrect_err,
+    'err-var': get_autocorrect_var,
+}
+
+
+def get_autocorrect_func(key):
+    if (not key):
+        return None
+    return autocorrect_map[key]
+
+# FEATURES WITHOUT AUTOCORRECT
 
 
 def feature_lagged_by_hours_p_time(data, feature, lags, lag_by=12):
@@ -105,29 +158,43 @@ def shmu_prediction_time_error(data, lags=1, lag_by=1, exp=0):
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
 
 
-def temperature_prediction_time_var(data, samples_count):
-    if (samples_count == 0):
+def add_moments(data, moments):
+    if (not moments):
         return data
+
+    samples = 12
+    splitted = moments.split('-')
     data_size = data.shape[0]
+    new_start = samples
+    options = ['mean', 'var', 'skew', 'kur']
 
-    new_start = 12 + samples_count
+    for moment in splitted:
+        if (moment not in options):
+            raise Exception(
+                'Invalid option supplied to moments: {}'.format(moment))
+        data[moment] = 0
 
-    new_col = 'temperature_var_{}'.format(samples_count)
-    data[new_col] = 0  # will set all rows to zero
+        for j in range(new_start, data_size):
+            ref_date = data.loc[j, 'validity_date']
+            m = re.search(
+                r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
+                ref_date)
+            hour = int(m.group(1))
+            if (hour > 12):
+                hour -= 12
 
-    for j in range(new_start, data_size):
-        ref_date = data.loc[j, 'validity_date']
-        m = re.search(
-            r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
-            ref_date)
-        hour = int(m.group(1))
-        if (hour > 12):
-            hour -= 12
+            temp_start = j - hour - samples + 1
+            temp_end = j - hour + 2
+            values = data.loc[temp_start: temp_end, 'current_temp']
 
-        temp_start = j - hour - samples_count + 2
-        temp_end = j - hour + 2  # last item is not included
-        data.loc[j, new_col] = np.var(
-            data.loc[temp_start: temp_end, 'current_temp'])
+            if (moment == 'mean'):
+                data.loc[j, moment] = np.mean(values)
+            elif (moment == 'var'):
+                data.loc[j, moment] = np.var(values)
+            elif (moment == 'skew'):
+                data.loc[j, moment] = pd.Series(values).skew()
+            elif (moment == 'kur'):
+                data.loc[j, moment] = pd.Series(values).kurtosis()
 
     # get rid of rows for which we do not have data
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
