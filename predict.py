@@ -11,6 +11,7 @@ from feature_utils import shmu_error_prediction_time_var
 from feature_utils import feature_lagged_by_hours
 from feature_utils import feature_lagged_by_hours_p_time
 from feature_utils import shmu_prediction_time_error
+from feature_utils import add_min_max
 
 from utils import get_bias, save_predictions, save_bias
 from utils import save_errors, predict, predict_test
@@ -39,6 +40,7 @@ if __name__ == '__main__':
     autocorrect = args.autocorrect
     verbose = args.verbose
     moments = args.moments
+    min_max = args.min_max
     skip_predictions = int(args.skip_predictions)
     shmu_error_var = int(args.shmu_error_var)
 
@@ -88,6 +90,7 @@ if __name__ == '__main__':
                                    feature_lag_by)
 
     data = add_moments(data, moments)
+    data = add_min_max(data, min_max)
     data = shmu_error_prediction_time_var(data, shmu_error_var)
 
     # for testing

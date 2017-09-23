@@ -171,7 +171,7 @@ def add_moments(data, moments):
     for moment in splitted:
         if (moment not in options):
             raise Exception(
-                'Invalid option supplied to moments: {}'.format(moment))
+                'Invalid option supplied for moments: {}'.format(moment))
         data[moment] = 0
 
         for j in range(new_start, data_size):
@@ -195,6 +195,44 @@ def add_moments(data, moments):
                 data.loc[j, moment] = pd.Series(values).skew()
             elif (moment == 'kur'):
                 data.loc[j, moment] = pd.Series(values).kurtosis()
+
+    # get rid of rows for which we do not have data
+    return data.iloc[new_start:data_size, :].reset_index(drop=True)
+
+
+def add_min_max(data, min_max):
+    if (not min_max):
+        return data
+
+    samples = 12
+    splitted = min_max.split('-')
+    data_size = data.shape[0]
+    new_start = samples
+    options = ['min', 'max']
+
+    for option in splitted:
+        if (option not in options):
+            raise Exception(
+                'Invalid option supplied for min-max: {}'.format(option))
+        data[option] = 0
+
+        for j in range(new_start, data_size):
+            ref_date = data.loc[j, 'validity_date']
+            m = re.search(
+                r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
+                ref_date)
+            hour = int(m.group(1))
+            if (hour > 12):
+                hour -= 12
+
+            temp_start = j - hour - samples + 1
+            temp_end = j - hour + 2
+            values = data.loc[temp_start: temp_end, 'current_temp']
+
+            if (option == 'min'):
+                data.loc[j, option] = min(values)
+            elif (option == 'max'):
+                data.loc[j, option] = max(values)
 
     # get rid of rows for which we do not have data
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
@@ -238,58 +276,3 @@ def cubic_root(x):
         return -math.pow(abs(x), float(1) / 3)
     else:
         return 0
-
-
-def non_linear_transform(data):
-    # TODO make CLI swiches for this
-    for i in range(data.shape[0]):
-        # data.loc[i, 'test'] = data.loc[i, 'current_temp'] ** 2
-        '''
-        if (data.loc[i, 'current_temp'] == 0):
-            data.loc[i, 'test'] = 0
-        else:
-            data.loc[i, 'test'] = math.log(
-                data.loc[i, 'current_temp'] ** 2, 10)
-        '''
-        # data.loc[i, 'test'] = cubic_root(data.loc[i, 'current_temp'])
-
-        '''
-        data.loc[i, 'test2'] = cubic_root(
-            data.loc[i, 'future_temp_shmu'] - data.loc[i, 'current_temp'])
-        '''
-
-        '''
-        data.loc[i, 'test2'] = math.log(
-            abs(data.loc[i, 'future_temp_shmu'] - data.loc[i, 'current_temp']),
-            2)
-        '''
-
-        '''
-        data.loc[i, 'test2'] = math.pow(
-            data.loc[i, 'future_temp_shmu'] - data.loc[i, 'current_temp'], 2)
-        '''
-
-        '''
-        data.loc[i, 'test2'] = math.pow(
-            data.loc[i, 'future_temp_shmu'] - data.loc[i, 'current_temp'], 3)
-        '''
-
-        '''
-        data.loc[i, 'test2'] = cubic_root(
-            data.loc[i, 'future_temp_shmu'] * data.loc[i, 'current_temp'])
-        '''
-
-        '''
-        data.loc[i, 'test2'] = data.loc[
-            i, 'future_temp_shmu'] * data.loc[i, 'current_temp']
-        '''
-        '''
-        data.loc[i, 'test2'] = math.log(max(0.001, abs(data.loc[
-            i, 'future_temp_shmu'] * data.loc[i, 'current_temp'])), 2)
-        '''
-        '''
-        data.loc[i, 'test2'] = data.loc[
-            i, 'future_temp_shmu'] - data.loc[i, 'current_temp']
-        '''
-
-    return data.reset_index(drop=True)

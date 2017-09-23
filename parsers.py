@@ -57,8 +57,14 @@ The supplied feature will be lagged by count hours, including each lag.\n''')
                         dest='moments',
                         help='''Add temperature moment. Using values from
 time when prediction was made and 12 hours before. Possible options
-are 'mean', 'var', 'skew', 'kur'. To add more moments use format
+are 'mean', 'var', 'skew', 'kur'. To combination use format
 'moment1-moment2 ... '\n''')
+    parser.add_argument('--min-max', action='store',
+                        default=0,
+                        dest='min_max',
+                        help='''Add min/max value for temperature using values from
+time when prediction was made and 12 hours before. Possible options
+are 'min', 'max', 'min-max'.\n''')
     parser.add_argument('--shmu-error-var', action='store',
                         default=0,
                         dest='shmu_error_var',
