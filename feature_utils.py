@@ -111,6 +111,26 @@ def feature_lagged_by_hours(data, feature, lags, lag_by=12):
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
 
 
+def add_shmu_error(data, before):
+    if (before == 0):
+        return data
+    '''
+    Add shmu error made `before` hours before current time
+    '''
+    data_size = data.shape[0]
+    new_start = before
+    new_col = 'shmu_error_{}'.format(before)
+    data[new_col] = 0  # will set all rows to zero
+
+    for j in range(new_start, data.shape[0]):
+        data.loc[j, new_col] = data.loc[
+            j - before, 'future_temp_shmu'] - data.loc[
+            j - before, 'future_temp']
+
+    # get rid of rows for which we do not have data
+    return data.iloc[new_start:data_size, :].reset_index(drop=True)
+
+
 def shmu_prediction_time_error(data, lags=1, lag_by=1, exp=0):
     '''
     For `lag` = 1 add shmu error in time when prediction

@@ -36,6 +36,10 @@ To override it set '--length' option.""")
                         choices=['reg', 'svr', 'rf', 'kn', 'nn',
                                  'ens', 'ens-linear', 'ens-ens'],
                         help="Model to use for predictions:\n")
+    parser.add_argument('--shmu-error', action='store',
+                        dest='shmu_error',
+                        default=0,
+                        help='Will use shmu error from "arg" hours before \n')
     parser.add_argument('--shmu-error-p-time', action='store',
                         dest='shmu_error_p_time',
                         default='0:1:0',

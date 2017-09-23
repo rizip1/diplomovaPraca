@@ -11,6 +11,7 @@ from feature_utils import shmu_error_prediction_time_var
 from feature_utils import feature_lagged_by_hours
 from feature_utils import feature_lagged_by_hours_p_time
 from feature_utils import shmu_prediction_time_error
+from feature_utils import add_shmu_error
 from feature_utils import add_min_max
 
 from utils import get_bias, save_predictions, save_bias
@@ -46,6 +47,8 @@ if __name__ == '__main__':
     shmu_error_var = int(args.shmu_error_var)
 
     # feature switches
+    shmu_error = int(args.shmu_error)
+
     shmu_error_p_time = args.shmu_error_p_time
     splitted = shmu_error_p_time.split(':')
     shmu_error_p_time_lags = int(splitted[0])
@@ -96,6 +99,7 @@ if __name__ == '__main__':
 
         data = add_moments(data, moments)
         data = add_min_max(data, min_max)
+        data = add_shmu_error(data, shmu_error)
         data = shmu_error_prediction_time_var(data, shmu_error_var)
 
         '''
