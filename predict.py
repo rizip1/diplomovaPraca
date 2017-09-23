@@ -41,6 +41,7 @@ if __name__ == '__main__':
     verbose = args.verbose
     moments = args.moments
     min_max = args.min_max
+    use_cache = args.use_cache
     skip_predictions = int(args.skip_predictions)
     shmu_error_var = int(args.shmu_error_var)
 
@@ -71,79 +72,91 @@ if __name__ == '__main__':
         feature_lags = int(splitted[0])
         feature_lag_by = int(splitted[1])
 
-    data = pd.read_csv(args.data_file, delimiter=';')
+    data = None
+    x = None
+    y = None
 
-    print('Preparing data')
+    if (not use_cache):
+        data = pd.read_csv(args.data_file, delimiter=';')
+        print('Preparing data')
 
-    data = shmu_prediction_time_error(data,
-                                      shmu_error_p_time_lags,
-                                      shmu_error_p_time_lag_by,
-                                      shmu_error_p_time_exp)
+        data = shmu_prediction_time_error(data,
+                                          shmu_error_p_time_lags,
+                                          shmu_error_p_time_lag_by,
+                                          shmu_error_p_time_exp)
 
-    data = feature_lagged_by_hours_p_time(data,
-                                          feature_p_time_name,
-                                          feature_p_time_lags,
-                                          feature_p_time_lag_by)
+        data = feature_lagged_by_hours_p_time(data,
+                                              feature_p_time_name,
+                                              feature_p_time_lags,
+                                              feature_p_time_lag_by)
 
-    data = feature_lagged_by_hours(data,
-                                   feature_name, feature_lags,
-                                   feature_lag_by)
+        data = feature_lagged_by_hours(data,
+                                       feature_name, feature_lags,
+                                       feature_lag_by)
 
-    data = add_moments(data, moments)
-    data = add_min_max(data, min_max)
-    data = shmu_error_prediction_time_var(data, shmu_error_var)
+        data = add_moments(data, moments)
+        data = add_min_max(data, min_max)
+        data = shmu_error_prediction_time_var(data, shmu_error_var)
+
+        '''
+        fieldsToDrop = ['p_time_temp', 'p_time_humidity', 'p_time_pressure',
+                        'p_time_rainfall_last_hour', 'p_time_wind_speed',
+                        'p_time_wind_direction']
+
+        '''
+        fieldsToDrop = ['current_temp', 'current_humidity', 'current_pressure',
+                        'current_rainfall_last_hour', 'current_wind_speed',
+                        'current_wind_direction']
+
+        fieldsToDrop.append('future_temp')
+        fieldsToDrop.append('validity_date')
+        fieldsToDrop.append('reference_date')
+
+        fieldsToDrop.append('p_time_rainfall_last_hour')
+
+        fieldsToDrop.append('p_time_humidity')
+
+        fieldsToDrop.append('p_time_pressure')
+
+        fieldsToDrop.append('p_time_wind_speed')
+
+        fieldsToDrop.append('p_time_wind_direction')
+
+        y = data.future_temp
+        x = data.drop(fieldsToDrop, axis=1)
+    else:
+        data = pd.read_csv('cached_data.csv', delimiter=';', index_col=0)
+        x = pd.read_csv('cached_x.csv', delimiter=';', index_col=0)
+        y = pd.read_csv('cached_y.csv', delimiter=';', index_col=0)
+        y = pd.Series(y.values.ravel())  # TODO remove this hack
+
+    data.to_csv('cached_data.csv', sep=';')
+    y.to_csv('cached_y.csv', sep=';', header='future_temp')
+    x.to_csv('cached_x.csv', sep=';')
 
     # for testing
     # data = data.iloc[12:, :].reset_index(drop=True)
-
-    y = data.future_temp
-
-    '''
-    fieldsToDrop = ['p_time_temp', 'p_time_humidity', 'p_time_pressure',
-                    'p_time_rainfall_last_hour', 'p_time_wind_speed',
-                    'p_time_wind_direction']
-
-    '''
-    fieldsToDrop = ['current_temp', 'current_humidity', 'current_pressure',
-                    'current_rainfall_last_hour', 'current_wind_speed',
-                    'current_wind_direction']
-
-    fieldsToDrop.append('future_temp')
-    fieldsToDrop.append('validity_date')
-    fieldsToDrop.append('reference_date')
-
-    fieldsToDrop.append('p_time_rainfall_last_hour')
-
-    fieldsToDrop.append('p_time_humidity')
-
-    fieldsToDrop.append('p_time_pressure')
-
-    fieldsToDrop.append('p_time_wind_speed')
-
-    fieldsToDrop.append('p_time_wind_direction')
-
-    x = data.drop(fieldsToDrop, axis=1)
-
-    x.to_csv('current_features.csv')
 
     print('Features used', x.columns, x.shape)
 
     models = []
     if (model_type == 'svr'):
         models.append(svm.SVR(C=1, kernel='linear', epsilon=0.1))
+        '''
+        models.append(svm.SVR(C=1, kernel='rbf', epsilon=0.1,
+                              gamma=0.5))
+        '''
     elif (model_type == 'reg'):
         models.append(lm.LinearRegression(fit_intercept=fit_intercept))
     elif (model_type == 'rf'):
-        models.append(dt.RandomForestRegressor(n_estimators=20, max_depth=3))
+        models.append(dt.RandomForestRegressor(n_estimators=50, max_depth=5))
     elif (model_type == 'nn'):
         models.append(nn.MLPRegressor(hidden_layer_sizes=(
-            10,), max_iter=30, activation='logistic',
+            50,), max_iter=30, activation='relu',
             solver='lbfgs', alpha=0.001))
-
         models.append(nn.MLPRegressor(hidden_layer_sizes=(
-            5,), max_iter=30, activation='relu',
+            30,), max_iter=20, activation='relu',
             solver='lbfgs', alpha=0.001))
-
         models.append(nn.MLPRegressor(hidden_layer_sizes=(
             20,), max_iter=15, activation='relu',
             solver='lbfgs', alpha=0.001))

@@ -33,7 +33,7 @@ To override it set '--length' option.""")
                         help='If set will not use bias term.')
     parser.add_argument('--model', action='store', dest='model',
                         default='reg',
-                        choices=['reg', 'svr', 'rf', 'kn', 'nn'
+                        choices=['reg', 'svr', 'rf', 'kn', 'nn',
                                  'ens', 'ens-linear', 'ens-ens'],
                         help="Model to use for predictions:\n")
     parser.add_argument('--shmu-error-p-time', action='store',
@@ -90,6 +90,9 @@ time when prediction was made and arg-1 hours before.\n''')
     parser.add_argument('--verbose', action='store_true', dest='verbose',
                         default=False,
                         help='Verbose output')
+    parser.add_argument('--use-cache', action='store_true', dest='use_cache',
+                        default=False,
+                        help='Used cached data')
     parser.add_argument('--skip-predictions', action='store',
                         dest='skip_predictions', default=0,
                         help='''Number of predictions to do not count to final
