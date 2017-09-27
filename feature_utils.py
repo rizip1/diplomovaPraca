@@ -258,32 +258,44 @@ def add_min_max(data, min_max):
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
 
 
-def shmu_error_prediction_time_var(data, samples_count):
-    if (samples_count == 0):
+def shmu_error_prediction_time_moment(data, moments):
+    if (not moments):
         return data
     data_size = data.shape[0]
+    samples = 12
+    new_start = samples + samples
+    splitted = moments.split('-')
+    options = ['mean', 'var']
 
-    new_start = 12 + samples_count
+    for option in splitted:
+        if (option not in options):
+            raise Exception(
+                'Invalid option supplied for shmu error moments: {}'
+                .format(option))
+        data[option] = 0
 
-    new_col = 'shmu_error_var_{}'.format(samples_count)
-    data[new_col] = 0  # will set all rows to zero
+        new_col = 'shmu_error_{}'.format(option)
+        data[new_col] = 0  # will set all rows to zero
 
-    for j in range(new_start, data_size):
-        ref_date = data.loc[j, 'validity_date']
-        m = re.search(
-            r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
-            ref_date)
-        hour = int(m.group(1))
-        if (hour > 12):
-            hour -= 12
+        for j in range(new_start, data_size):
+            ref_date = data.loc[j, 'validity_date']
+            m = re.search(
+                r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
+                ref_date)
+            hour = int(m.group(1))
+            if (hour > 12):
+                hour -= 12
 
-        var_values = []
-        for i in range(samples_count):
-            sh_error = data.loc[j - hour - i, 'future_temp'] - \
-                data.loc[j - hour - i, 'future_temp_shmu']
-            var_values.append(sh_error)
+            var_values = []
+            for i in range(samples + 1):
+                sh_error = data.loc[j - hour - i, 'future_temp'] - \
+                    data.loc[j - hour - i, 'future_temp_shmu']
+                var_values.append(sh_error)
 
-        data.loc[j, new_col] = np.var(var_values)
+            if (option == 'mean'):
+                data.loc[j, new_col] = np.mean(var_values)
+            elif (option == 'var'):
+                data.loc[j, new_col] = np.var(var_values)
 
     # get rid of rows for which we do not have data
     return data.iloc[new_start:data_size, :].reset_index(drop=True)

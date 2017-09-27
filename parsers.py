@@ -69,11 +69,12 @@ are 'mean', 'var', 'skew', 'kur'. To combination use format
                         help='''Add min/max value for temperature using values from
 time when prediction was made and 12 hours before. Possible options
 are 'min', 'max', 'min-max'.\n''')
-    parser.add_argument('--shmu-error-var', action='store',
+    parser.add_argument('--shmu-error-moment', action='store',
                         default=0,
-                        dest='shmu_error_var',
-                        help='''Add shmu error variance from
-time when prediction was made and arg-1 hours before.\n''')
+                        dest='shmu_error_moment',
+                        help='''Add shmu error moment from
+time when prediction was made and arg hours before. Options are
+'mean', 'var', 'mean-var'.\n''')
     parser.add_argument('--diff', action='store_true', dest='diff',
                         default=False,
                         help='Perform one step difference')

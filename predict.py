@@ -7,7 +7,7 @@ import pandas as pd
 import os
 
 from feature_utils import add_moments
-from feature_utils import shmu_error_prediction_time_var
+from feature_utils import shmu_error_prediction_time_moment
 from feature_utils import feature_lagged_by_hours
 from feature_utils import feature_lagged_by_hours_p_time
 from feature_utils import shmu_prediction_time_error
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     min_max = args.min_max
     use_cache = args.use_cache
     skip_predictions = int(args.skip_predictions)
-    shmu_error_var = int(args.shmu_error_var)
+    shmu_error_moment = args.shmu_error_moment
 
     # feature switches
     shmu_error = int(args.shmu_error)
@@ -100,7 +100,7 @@ if __name__ == '__main__':
         data = add_moments(data, moments)
         data = add_min_max(data, min_max)
         data = add_shmu_error(data, shmu_error)
-        data = shmu_error_prediction_time_var(data, shmu_error_var)
+        data = shmu_error_prediction_time_moment(data, shmu_error_moment)
 
         '''
         fieldsToDrop = ['p_time_temp', 'p_time_humidity', 'p_time_pressure',
@@ -145,21 +145,26 @@ if __name__ == '__main__':
 
     models = []
     if (model_type == 'svr'):
-        models.append(svm.SVR(C=1, kernel='linear', epsilon=0.1))
+        models.append(svm.SVR(C=1, kernel='linear', epsilon=0.05))
         '''
         models.append(svm.SVR(C=1, kernel='rbf', epsilon=0.1,
-                              gamma=0.5))
+                              gamma=0.05))
         '''
     elif (model_type == 'reg'):
         models.append(lm.LinearRegression(fit_intercept=fit_intercept))
     elif (model_type == 'rf'):
         models.append(dt.RandomForestRegressor(n_estimators=50, max_depth=5))
+        '''
+        models.append(dt.GradientBoostingRegressor(
+            n_estimators=50,
+            learning_rate=0.1, max_depth=5))
+        '''
     elif (model_type == 'nn'):
         models.append(nn.MLPRegressor(hidden_layer_sizes=(
-            50,), max_iter=30, activation='relu',
+            20,), max_iter=15, activation='relu',
             solver='lbfgs', alpha=0.001))
         models.append(nn.MLPRegressor(hidden_layer_sizes=(
-            30,), max_iter=20, activation='relu',
+            20,), max_iter=15, activation='relu',
             solver='lbfgs', alpha=0.001))
         models.append(nn.MLPRegressor(hidden_layer_sizes=(
             20,), max_iter=15, activation='relu',
@@ -181,9 +186,9 @@ if __name__ == '__main__':
             learning_rate=0.1, max_depth=2))
         models.append(dt.RandomForestRegressor(n_estimators=20, max_depth=2))
     elif (model_type == 'ens-linear'):
-        models.append(lm.LinearRegression(fit_intercept=fit_intercept))
-        models.append(lm.Lasso(alpha=0.5, copy_X=True, fit_intercept=True,
-                               max_iter=10, normalize=False))
+        # models.append(lm.LinearRegression(fit_intercept=fit_intercept))
+        models.append(lm.Lasso(alpha=0.1, copy_X=True, fit_intercept=True,
+                               max_iter=50, normalize=False))
 
     elif (model_type == 'ens-ens'):
         models.append(dt.GradientBoostingRegressor(

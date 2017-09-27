@@ -148,6 +148,7 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         x_orig = x.iloc[interval:]
         y_orig = y.iloc[interval:]
         x_diff = x.diff(periods=interval).iloc[interval:]
+        # y.diff(periods=interval).iloc[interval:]
         y_diff = y.diff(periods=interval).iloc[interval:]
     else:
         x_orig = x
