@@ -42,11 +42,16 @@ dropped_data = dataset.drop(to_drop, axis=1)
 x = dropped_data.drop('future_temp', axis=1)
 y = dropped_data.future_temp
 
-data_len = dataset.shape[0]
-window_size = 24 * 30
-train_end = window_size + 10000
+random_s = 300
 
-data_len = train_end + 3
+data_len = dataset.shape[0]
+
+window_size = 24 * 30
+offset = 10679 - window_size
+train_end = window_size + offset
+
+if (random_s == 0):
+    data_len = train_end + 30
 
 all_predicted = np.array([])
 all_y_test = np.array([])
@@ -62,8 +67,6 @@ predictions_made = 0
 mae_predict = 0
 mse_predict = 0
 
-random_s = 0
-
 while ((random_s == 0 and train_end < data_len) or
        (random_s != 0 and predictions_made < random_s)):
     pred_length = step
@@ -71,11 +74,11 @@ while ((random_s == 0 and train_end < data_len) or
         pred_length = data_len - train_end
 
     if (random_s == 0):
-        print('Current position: ...', train_end)
+        print('\nCurrent position: ...', train_end)
 
     for i in range(pred_length):
         if (random_s != 0):
-            train_end = randint(window_size, data_len - 25)
+            train_end = randint(window_size, data_len - i - 25)
             print('position', train_end)
 
         train_X = x.iloc[train_end - window_size +
@@ -101,7 +104,7 @@ while ((random_s == 0 and train_end < data_len) or
         train_X = train_X.reshape((train_X.shape[0], 1, train_X.shape[1]))
         test_X = test_X.reshape((test_X.shape[0], 1, test_X.shape[1]))
 
-        print('training network {}'.format(i))
+        # print('training network {}'.format(i))
         model = Sequential()
         model.add(GRU(50, input_shape=(train_X.shape[1], train_X.shape[2]),
                       activation='tanh'))
@@ -110,7 +113,7 @@ while ((random_s == 0 and train_end < data_len) or
         model.compile(loss='mae', optimizer='sgd')
         history = model.fit(train_X, train_y, epochs=100, batch_size=4,
                             verbose=0, shuffle=False)
-        yhat = model.predict(test_X)
+        yhat1 = model.predict(test_X)
 
         # free tensorFlow memory
         backend.clear_session()
@@ -118,7 +121,7 @@ while ((random_s == 0 and train_end < data_len) or
         test_X = test_X.reshape((test_X.shape[0], test_X.shape[2]))
 
         # invert scaling for forecast
-        y_predicted = get_predicted_values(test_X, yhat)
+        y_predicted = get_predicted_values(test_X, yhat1)
 
         # invert scaling for actual
         y_test = get_test_values(test_y, test_X)
@@ -127,7 +130,7 @@ while ((random_s == 0 and train_end < data_len) or
         mae_predict += np.sum(abs(y_test - y_predicted))
         mse_predict += np.sum((y_test - y_predicted) ** 2)
 
-        print('mse', mse_predict / predictions_made)
+        print('\nmse', mse_predict / predictions_made)
         print('mae', mae_predict / predictions_made)
         print('predictions count', predictions_made)
 
