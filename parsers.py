@@ -13,20 +13,8 @@ weights will be used.''', type=float)
     parser.add_argument('--file', action='store', dest='data_file',
                         required=True,
                         help='''Path to data file that will be loaded.''')
-    parser.add_argument('--mode', action='store', dest='mode',
-                        default='window',
-                        choices=['window', 'extended-window', 'train-set'],
-                        help="""Mode to use for predictions:\n
-window = use sliding window
-extended-window = use window that grows over time
-train-set = learn from fixed length train set\n
-Default length for window, extended-window and train-set is 60.
-To override it set '--length' option.""")
     parser.add_argument('--length', action='store', dest='length',
                         default=60,
-                        help='Length of window, extended-window or train-set.')
-    parser.add_argument('--lags', action='store', dest='lags',
-                        default=0,
                         help='Length of window, extended-window or train-set.')
     parser.add_argument('--no-intercept', action='store_true', default=False,
                         dest='no_intercept',

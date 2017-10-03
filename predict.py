@@ -27,13 +27,11 @@ if __name__ == '__main__':
     if not os.path.exists('./other'):
         os.makedirs('./other')
 
-    # load command line arguments
+    # load CLI arguments
     weight = (args.weight_coef, None)[args.weight_coef is None]
     fit_intercept = not args.no_intercept
-    mode = args.mode
     length = int(args.length)
     model_type = args.model
-    lags = int(args.lags)
     step = int(args.step)
     diff = args.diff
     norm = args.norm
@@ -132,7 +130,7 @@ if __name__ == '__main__':
     y.to_csv('cached_y.csv', sep=';', header='future_temp')
     x.to_csv('cached_x.csv', sep=';')
 
-    # for testing
+    # uncomment for testing on smaller intervals
     # data = data.iloc[12:, :].reset_index(drop=True)
 
     print('Features used', x.columns, x.shape)
@@ -140,10 +138,7 @@ if __name__ == '__main__':
     models = []
     if (model_type == 'svr'):
         models.append(svm.SVR(C=1, kernel='linear', epsilon=0.05))
-        '''
-        models.append(svm.SVR(C=1, kernel='rbf', epsilon=0.1,
-                              gamma=0.05))
-        '''
+        # models.append(svm.SVR(C=1, kernel='rbf', epsilon=0.1, gamma=0.05))
     elif (model_type == 'reg'):
         models.append(lm.LinearRegression(fit_intercept=fit_intercept))
     elif (model_type == 'rf'):
@@ -162,18 +157,10 @@ if __name__ == '__main__':
         models.append(ng.KNeighborsRegressor())
     elif (model_type == 'ens'):
         models.append(lm.LinearRegression(fit_intercept=fit_intercept))
-        models.append(svm.SVR(C=1, kernel='rbf', epsilon=0.1,
-                              gamma=0.05))
-        models.append(nn.MLPRegressor(hidden_layer_sizes=(
-            20,), max_iter=15, activation='relu',
-            solver='lbfgs', alpha=0.001))
-        models.append(ng.KNeighborsRegressor())
-        models.append(lm.Lasso(alpha=0.5, copy_X=True, fit_intercept=True,
-                               max_iter=10, normalize=False))
-        models.append(dt.GradientBoostingRegressor(
-            n_estimators=20,
-            learning_rate=0.1, max_depth=2))
-        models.append(dt.RandomForestRegressor(n_estimators=20, max_depth=2))
+        models.append(lm.Lasso(alpha=0.1, copy_X=True, fit_intercept=True,
+                               max_iter=50, normalize=False))
+        models.append(lm.RidgeCV(alphas=[0.1, 0.3, 1.0, 3, 10.0],
+                                 fit_intercept=True, normalize=False))
     elif (model_type == 'lasso'):
         models.append(lm.Lasso(alpha=0.1, copy_X=True, fit_intercept=True,
                                max_iter=50, normalize=False))

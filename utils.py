@@ -72,7 +72,6 @@ def save_predictions(real_values, predicted_values, shmu_predictions):
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     plt.plot(predicted_values, 'or', label='Predicted values (Our model)')
-    # plt.plot(shmu_predictions, 'og', label='Predicted values (SHMU)')
     plt.plot(real_values_x, real_values[-len(predicted_values):],
              'ok', label='Real values')
     plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
@@ -103,7 +102,6 @@ def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae):
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     plt.plot(predicted_errors, 'k', label='predicted errors')
-    # plt.plot(shmu_errors, 'r', label='shmu errors')
     plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
     plt.title('Temperature errors')
     plt.ylabel('Error')
@@ -129,6 +127,9 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             norm=False, average_models=False, autocorrect=False,
             verbose=False, skip_predictions=0):
     '''
+    TODO refactor:
+    This function is extremely long and does too much things.
+
     Predict by looking at conditions that occured every `interval`
     hours earlier.
     The `window_len` determines length of sliding window.
@@ -148,7 +149,6 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         x_orig = x.iloc[interval:]
         y_orig = y.iloc[interval:]
         x_diff = x.diff(periods=interval).iloc[interval:]
-        # y.diff(periods=interval).iloc[interval:]
         y_diff = y.diff(periods=interval).iloc[interval:]
     else:
         x_orig = x
@@ -229,7 +229,7 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         x_test_orig = x_orig.iloc[train_end:train_end + pred_length, :]
         y_test = y_orig.iloc[train_end:train_end + pred_length]
 
-        # for testing purpose
+        # for testing purpose if autocorrect data are correct
         '''
         if (predictions_made > 0):
             save_autocorrect_state(model_errors, pred_length, x_train_sets,
@@ -319,7 +319,13 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
     }
 
 
-def predict_test(data, x, y, weight, models, length, step):
+def predict_one_hour_intervals(data, x, y, weight, models, length, step):
+    '''
+    Use step between measure set to one hour.
+    Currently not used as does not seem very reasonable.
+
+    TODO: incorporate into `predict` function
+    '''
     data_len = x.shape[0]
     predictions_count = data_len - (length * step)
     mae_predict = 0
@@ -384,5 +390,5 @@ def predict_test(data, x, y, weight, models, length, step):
         'mse_shmu': mse_shmu / predictions_count,
         'predicted_all': np.array(predicted_all),
         'predictions_count': predictions_count,
-        'model_bias': 0,  # TODO
+        'model_bias': 0,
     }

@@ -1,5 +1,9 @@
 import matplotlib.pyplot as plt
 
+'''
+Helper script for creating graphs from hardcoded data
+'''
+
 x_12 = [60, 90, 120, 150, 180, 210, 240]
 x_24 = [60, 120, 180, 240]
 

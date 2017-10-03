@@ -3,7 +3,11 @@ import math
 import numpy as np
 import pandas as pd
 
-# FEATURES FOR AUTOCORRECT
+# TODO: move common action into separate functions,
+# merge what can be merged together
+
+
+# AUTOCORRECT FEATURES
 
 
 def get_autocorrect_err(model_errors, pos=0, interval=0, window_length=0,
@@ -53,7 +57,8 @@ def get_autocorrect_func(key):
         return None
     return autocorrect_map[key]
 
-# FEATURES WITHOUT AUTOCORRECT
+
+# BASIC FEATURES
 
 
 def feature_lagged_by_hours_p_time(data, feature, lags, lag_by=12):
