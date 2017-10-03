@@ -2,9 +2,12 @@
 python3,
 numpy,
 pandas,
-sklearn,
+scikit-learn,
 matplotlib,
+scipy,
+keras,
 psycopg2 (for postgres database connection)
+...
 
 To install dependencies you can create virtualenv in root folder and run
 ```
@@ -14,7 +17,7 @@ pip install -r requirements.txt
 # Prediction script
 Example:
 ```
-python predict.py --file data.csv --mode window --weight 0.97 --length 200 --lags 1 --model svr
+python predict.py --file data.csv --model reg --weight 0.97 --length 60 --step 24
 ```
 To get info about all possible switches type:
 ```
@@ -26,12 +29,12 @@ Run all data analysis tasks:
 ```
 python data_analysis.py
 ```
-You can choose concreate tasks to skip by specifying appropriate switches.
+You can choose concreate tasks by specifying appropriate switches.
 To lists all possible switches and their descriptions type:
 ```
 python data_analysis.py --help
 ```
 Example:
 ```
-python data_analysis.py --skip-data --skip-invalid
+python data_analysis.py --data --invalid
 ```
