@@ -11,6 +11,8 @@ from keras.layers import Dense
 from keras.layers import GRU
 from keras.optimizers import SGD
 
+from feature_utils import add_min_max
+from feature_utils import add_moments
 from feature_utils import shmu_prediction_time_error
 
 
@@ -29,6 +31,10 @@ def get_test_values(test_y, test_x):
 dataset = pd.read_csv('data/data_11816.csv', delimiter=';')
 
 dataset = shmu_prediction_time_error(dataset, 1, 1, 0)
+
+dataset = add_moments(dataset, 'mean')
+
+dataset = add_min_max(dataset, 'min')
 
 to_drop = ['reference_date', 'validity_date',
            'current_temp', 'current_humidity',
@@ -105,6 +111,7 @@ while ((random_s == 0 and train_end < data_len) or
         test_X = test_X.reshape((test_X.shape[0], 1, test_X.shape[1]))
 
         # print('training network {}'.format(i))
+        # return_sequences=True (use for more layers)
         model = Sequential()
         model.add(GRU(50, input_shape=(train_X.shape[1], train_X.shape[2]),
                       activation='tanh'))

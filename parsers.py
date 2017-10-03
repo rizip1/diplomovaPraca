@@ -33,8 +33,8 @@ To override it set '--length' option.""")
                         help='If set will not use bias term.')
     parser.add_argument('--model', action='store', dest='model',
                         default='reg',
-                        choices=['reg', 'svr', 'rf', 'kn', 'nn',
-                                 'ens', 'ens-linear', 'ens-ens'],
+                        choices=['reg', 'svr', 'rf', 'kn', 'nn', 'ridge',
+                                 'ridge-cv', 'ens', 'lasso', 'gradient-boost'],
                         help="Model to use for predictions:\n")
     parser.add_argument('--shmu-error', action='store',
                         dest='shmu_error',

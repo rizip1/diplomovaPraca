@@ -15,7 +15,7 @@ from feature_utils import add_shmu_error
 from feature_utils import add_min_max
 
 from utils import get_bias, save_predictions, save_bias
-from utils import save_errors, predict, predict_test
+from utils import save_errors, predict
 from parsers import get_predict_parser
 
 if __name__ == '__main__':
@@ -102,12 +102,6 @@ if __name__ == '__main__':
         data = add_shmu_error(data, shmu_error)
         data = shmu_error_prediction_time_moment(data, shmu_error_moment)
 
-        '''
-        fieldsToDrop = ['p_time_temp', 'p_time_humidity', 'p_time_pressure',
-                        'p_time_rainfall_last_hour', 'p_time_wind_speed',
-                        'p_time_wind_direction']
-
-        '''
         fieldsToDrop = ['current_temp', 'current_humidity', 'current_pressure',
                         'current_rainfall_last_hour', 'current_wind_speed',
                         'current_wind_direction']
@@ -154,11 +148,6 @@ if __name__ == '__main__':
         models.append(lm.LinearRegression(fit_intercept=fit_intercept))
     elif (model_type == 'rf'):
         models.append(dt.RandomForestRegressor(n_estimators=50, max_depth=5))
-        '''
-        models.append(dt.GradientBoostingRegressor(
-            n_estimators=50,
-            learning_rate=0.1, max_depth=5))
-        '''
     elif (model_type == 'nn'):
         models.append(nn.MLPRegressor(hidden_layer_sizes=(
             20,), max_iter=15, activation='relu',
@@ -185,22 +174,22 @@ if __name__ == '__main__':
             n_estimators=20,
             learning_rate=0.1, max_depth=2))
         models.append(dt.RandomForestRegressor(n_estimators=20, max_depth=2))
-    elif (model_type == 'ens-linear'):
-        # models.append(lm.LinearRegression(fit_intercept=fit_intercept))
+    elif (model_type == 'lasso'):
         models.append(lm.Lasso(alpha=0.1, copy_X=True, fit_intercept=True,
                                max_iter=50, normalize=False))
-
-    elif (model_type == 'ens-ens'):
+    elif (model_type == 'ridge'):
+        models.append(lm.Ridge(alpha=2, copy_X=True, fit_intercept=True,
+                               normalize=False))
+    elif (model_type == 'ridge-cv'):
+        models.append(lm.RidgeCV(alphas=[0.1, 0.3, 1.0, 3, 10.0],
+                                 fit_intercept=True, normalize=False))
+    elif (model_type == 'gradient-boost'):
         models.append(dt.GradientBoostingRegressor(
-            n_estimators=20,
-            learning_rate=0.1, max_depth=2))
-        models.append(dt.RandomForestRegressor(n_estimators=20, max_depth=2))
+            n_estimators=300, learning_rate=0.05, max_depth=3))
 
     stats = predict(data, x, y, weight, models, length, step, diff,
                     norm, average_models, autocorrect, verbose,
                     skip_predictions)
-
-    # stats = predict_test(data, x, y, weight, models, length, step)
 
     print('BIAS (temperature) in data {0:.2f}'.format(get_bias(
         real=data.future_temp, predicted=data.future_temp_shmu)))
