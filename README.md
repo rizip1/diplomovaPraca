@@ -36,5 +36,5 @@ python data_analysis.py --help
 ```
 Example:
 ```
-python data_analysis.py --data -a-invalid
+python data_analysis.py --data --invalid
 ```
