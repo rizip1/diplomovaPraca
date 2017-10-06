@@ -131,7 +131,7 @@ if __name__ == '__main__':
     x.to_csv('cached_x.csv', sep=';')
 
     # uncomment for testing on smaller intervals
-    # data = data.iloc[12:, :].reset_index(drop=True)
+    # data = data.iloc[13000:, :].reset_index(drop=True)
 
     print('Features used', x.columns, x.shape)
 
