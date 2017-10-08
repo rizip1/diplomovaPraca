@@ -1,9 +1,154 @@
+import re
 import matplotlib.pyplot as plt
 import numpy as np
 import math
 import pandas as pd
 
 from feature_utils import get_autocorrect_func
+
+improvements = [[] for i in range(24)]
+season_improvements = {
+    'spring': [[] for i in range(24)],
+    'summer': [[] for i in range(24)],
+    'autumn': [[] for i in range(24)],
+    'winter': [[] for i in range(24)],
+}
+
+
+def save_hour_value(all_results, seasonal_results, value, period, month):
+    all_results[period].append(value)
+    if (month in [1, 2, 3]):
+        seasonal_results['winter'][period].append(value)
+    elif (month in [4, 5, 6]):
+        seasonal_results['spring'][period].append(value)
+    elif (month in [7, 8, 9]):
+        seasonal_results['summer'][period].append(value)
+    elif (month in [10, 11, 12]):
+        seasonal_results['autumn'][period].append(value)
+
+
+def plot_hour_results(all_results, seasonal_results, title, file_name):
+    morning = []
+    afternoon = []
+    x = [(i + 1) for i in range(24)]
+    for i, values in enumerate(all_results):
+        mean = np.mean(values)
+        if (i < 12):
+            morning.append(mean)
+        else:
+            afternoon.append(mean)
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(x[0:12], morning, 'r')
+    plt.plot(x[12:], afternoon, 'g')
+    plt.title(title)
+    plt.ylabel('Errors')
+    plt.xlabel('Hours')
+    plt.xticks(x)
+    plt.grid()
+    plt.savefig('improvement/{}.png'.format(file_name))
+    plt.close()
+
+    plt.figure(figsize=(12, 6))
+
+    colors = ['r', 'g', 'b', 'y']
+    for index, period in enumerate(['spring', 'summer', 'autumn', 'winter']):
+        morning = []
+        afternoon = []
+        x = [(i + 1) for i in range(24)]
+        for i, values in enumerate(seasonal_results[period]):
+            mean = np.mean(values)
+            if (i < 12):
+                morning.append(mean)
+            else:
+                afternoon.append(mean)
+
+        plt.plot(x[0:12], morning, colors[index], label=period)
+        plt.plot(x[12:], afternoon, colors[index])
+    plt.title(title)
+    plt.ylabel('Errors')
+    plt.xlabel('Hours')
+    plt.xticks(x)
+    plt.grid()
+    plt.legend(bbox_to_anchor=(1, 1.015), loc=2)
+    plt.savefig('improvement/{}_periods.png'.format(file_name))
+    plt.close()
+
+
+def save_improvement_to_file():
+    total_improvements = 0
+    total_draws = 0
+    total_worse = 0
+    morning = []
+    afternoon = []
+
+    for index, values in enumerate(improvements):
+        for v in values:
+            if (v < 0):
+                total_worse += 1
+            elif (v > 0):
+                total_improvements += 1
+            else:
+                total_draws += 1
+
+        val = np.mean(values)
+        if (index < 12):
+            morning.append(val)
+        else:
+            afternoon.append(val)
+
+    with open('improvement/total_improvemets.txt', 'w') as f:
+        f.write('Morning\n')
+        for v in morning:
+            f.write('{},\n'.format(v))
+
+        f.write('Afternoon\n')
+        for v in afternoon:
+            f.write('{},\n'.format(v))
+
+        f.write('\nTotal improvements: {}\n'.format(total_improvements))
+        f.write('Total worse: {}\n'.format(total_worse))
+        f.write('Total draws: {}\n'.format(total_draws))
+        f.write('Total records: {}\n'.format(
+                total_draws + total_improvements + total_worse))
+
+    for season, hour_values in season_improvements.items():
+        total_improvements = 0
+        total_draws = 0
+        total_worse = 0
+
+        morning = []
+        afternoon = []
+        for index, values in enumerate(hour_values):
+            for v in values:
+                if (v < 0):
+                    total_worse += 1
+                elif (v > 0):
+                    total_improvements += 1
+                else:
+                    total_draws += 1
+
+            val = np.mean(values)
+            if (index < 12):
+                morning.append(val)
+            else:
+                afternoon.append(val)
+        with open('improvement/{}_improvemets.txt'.format(season), 'w') as f:
+            f.write('{}\n'.format(season))
+
+            f.write('Morning\n')
+            for v in morning:
+                f.write('{},\n'.format(v))
+
+            f.write('Afternoon\n')
+            for v in afternoon:
+                f.write('{},\n'.format(v))
+
+            f.write('\nTotal improvements: {}\n'.format(total_improvements))
+            f.write('Total worse: {}\n'.format(total_worse))
+            f.write('Total draws: {}\n'.format(total_draws))
+            f.write('Total records: {}\n'.format(
+                total_draws + total_improvements + total_worse))
 
 
 def save_autocorrect_state(model_errors, pred_length, x_train_sets,
@@ -19,6 +164,28 @@ def save_autocorrect_state(model_errors, pred_length, x_train_sets,
     x_test.to_csv('test/test.csv')
     import os
     os.sys.exit(1)
+
+
+def parse_hour(date):
+    m = re.search(
+        r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
+        date)
+    return int(m.group(1))
+
+
+def parse_month(date):
+    m = re.search(
+        r'^[0-9]{4}-([0-9]{2})-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$',
+        date)
+    return int(m.group(1))
+
+
+def get_weights(weight, x_train):
+    if (weight):
+        w = list(reversed([math.sqrt(weight ** j)
+                           for j in range(x_train.shape[0])]))
+        return np.array(w)
+    return None
 
 
 def contains_missing_data(x_train, y_train, x_test, y_test):
@@ -141,20 +308,15 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
     `window_len * interval` hours earlier.
     '''
 
-    x_orig = None
-    y_orig = None
-    x_diff = None
-    y_diff = None
+    # TODO copy data
+    x_orig, y_orig, x_diff, y_diff = [None for i in range(4)]
     if (diff):
         x_orig = x.iloc[interval:]
         y_orig = y.iloc[interval:]
         x_diff = x.diff(periods=interval).iloc[interval:]
         y_diff = y.diff(periods=interval).iloc[interval:]
     else:
-        x_orig = x
-        y_orig = y
-        x_diff = x
-        y_diff = y
+        x_orig, y_orig, x_diff, y_diff = [x, y, x, y]
 
     data_len = x_diff.shape[0]
 
@@ -185,7 +347,10 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
 
         # Check how many prediction we can make within same ref_date
         ref_date = data.reference_date[train_end]
+        ref_date_hour = parse_hour(ref_date)
+        ref_date_month = parse_month(ref_date)
 
+        # TODO get rid of this
         pred_length = 0
         while (data.reference_date[train_end + pred_length] == ref_date):
             pred_length += 1
@@ -243,13 +408,8 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
                 continue
 
             best_model = None
-            weights = None
+            weights = get_weights(weight, x_train_sets[i])
             y_predicted = 0
-
-            if (weight):
-                w = list(reversed([math.sqrt(weight ** j)
-                                   for j in range(x_train_sets[i].shape[0])]))
-                weights = np.array(w)
 
             x_test_item = x_test.iloc[i, :]
             if (norm):
@@ -288,14 +448,21 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             # add into predicted_all
             predicted_all = np.hstack((predicted_all, y_predicted))
 
-            mae_shmu += np.sum(abs(y_test.iloc[i] -
-                                   x_test_orig.future_temp_shmu.iloc[i]))
-            mse_shmu += np.sum((y_test.iloc[i] -
-                                x_test_orig.future_temp_shmu.iloc[i]) ** 2)
+            shmu_value = x_test_orig.future_temp_shmu.iloc[i]
+            test_value = y_test.iloc[i]
 
-            mae_predict += np.sum(abs(y_test.iloc[i] - y_predicted))
-            mse_predict += np.sum((y_test.iloc[i] - y_predicted) ** 2)
-            model_bias += (y_test.iloc[i] - y_predicted)[0]
+            shmu_error = abs(test_value - shmu_value)
+            predicted_error = abs(test_value - y_predicted)
+            improvement = (shmu_error - predicted_error)[0]
+            save_hour_value(improvements, season_improvements,
+                            improvement, ref_date_hour + i, ref_date_month)
+
+            mae_shmu += np.sum(abs(test_value - shmu_value))
+            mse_shmu += np.sum((test_value - shmu_value) ** 2)
+
+            mae_predict += np.sum(abs(test_value - y_predicted))
+            mse_predict += np.sum((test_value - y_predicted) ** 2)
+            model_bias += (test_value - y_predicted)[0]
 
             cum_mse.append(mse_predict / predictions_made)
             cum_mae.append(mae_predict / predictions_made)
@@ -304,6 +471,10 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         # shift interval for learning
         train_end += pred_length
         start += pred_length
+
+    save_improvement_to_file()
+    plot_hour_results(improvements, season_improvements,
+                      'Improvements', 'improvements')
 
     return {
         'mae_predict': mae_predict / predictions_made,
@@ -316,79 +487,4 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         'cum_mse': cum_mse[200:],
         'cum_mae': cum_mae[200:],
         'cum_bias': cum_bias[200:],
-    }
-
-
-def predict_one_hour_intervals(data, x, y, weight, models, length, step):
-    '''
-    Use step between measure set to one hour.
-    Currently not used as does not seem very reasonable.
-
-    TODO: incorporate into `predict` function
-    '''
-    data_len = x.shape[0]
-    predictions_count = data_len - (length * step)
-    mae_predict = 0
-    mse_predict = 0
-    mae_shmu = 0
-    mse_shmu = 0
-    start = 0
-    predicted_all = np.array([])
-    train_end = length * step
-    model = models[0]
-
-    while (train_end < data_len):
-        x_train = x.iloc[start:train_end, :]
-        y_train = y.iloc[start:train_end]
-
-        # check how many prediction we can make within same ref_date
-        ref_date = data.reference_date[train_end]
-
-        pred_length = 0
-        while (data.reference_date[train_end + pred_length] == ref_date):
-            pred_length += 1
-            # Out of bounds
-            if (pred_length + train_end >= data_len):
-                break
-
-        # test set if for 1 to 12 hours ahead
-        # if dataset has ended it is 1 to x hours ahead
-        # where x is in [1,12]
-        x_test = x.iloc[train_end:train_end + pred_length, :]
-        y_test = y.iloc[train_end:train_end + pred_length]
-
-        weights = None
-        if (weight):
-            weights = list(reversed([math.sqrt(weight ** j)
-                                     for j in range(x_train.shape[0])]))
-            weights = np.array(weights)
-
-        # values is not needed here, pandas removes Index by default
-        model.fit(x_train.values, y_train, sample_weight=weights)
-
-        # predict values for y
-        y_predicted = model.predict(x_test)
-
-        # add into predicted all
-        predicted_all = np.hstack((predicted_all, y_predicted))
-
-        # -1 index stands for current_temperature column in data
-        mae_shmu += np.sum(abs(y_test - x_test.future_temp_shmu))
-        mse_shmu += np.sum((y_test - x_test.future_temp_shmu) ** 2)
-
-        mae_predict += np.sum(abs(y_test - y_predicted))
-        mse_predict += np.sum((y_test - y_predicted) ** 2)
-
-        # shift interval for learning
-        train_end += pred_length
-        start += pred_length
-
-    return {
-        'mae_predict': mae_predict / predictions_count,
-        'mae_shmu': mae_shmu / predictions_count,
-        'mse_predict': mse_predict / predictions_count,
-        'mse_shmu': mse_shmu / predictions_count,
-        'predicted_all': np.array(predicted_all),
-        'predictions_count': predictions_count,
-        'model_bias': 0,
     }

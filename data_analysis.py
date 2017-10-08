@@ -7,6 +7,9 @@ import pandas as pd
 import argparse
 import re
 
+from utils import parse_month, parse_hour
+from utils import save_hour_value, plot_hour_results
+
 from db import save_data_for_station, get_stations
 from sklearn.ensemble import ExtraTreesRegressor
 
@@ -38,6 +41,9 @@ def get_parser():
     parser.add_argument('--features', action='store_true', default=False,
                         dest='features',
                         help='Will plot features in time')
+    parser.add_argument('--shmu-errors', action='store_true', default=False,
+                        dest='shmu_errors',
+                        help='Will plot shmu errors in time')
     return parser
 
 
@@ -229,6 +235,7 @@ if __name__ == '__main__':
     create_corr = args.corr
     create_features = args.features
     create_missing_data = args.data_missing
+    create_shmu_errors = args.shmu_errors
 
     stations = get_stations()
 
@@ -247,9 +254,7 @@ if __name__ == '__main__':
             prev_hour = None
             print('Processing station {}...'.format(s))
 
-            # check for missing data
-
-            # todo this do not check when data are missing for
+            # TODO this do not check when data are missing for
             # whole day or month
             s_data = pd.read_csv('data/data_{}.csv'.format(s), delimiter=';')
             for j in range(0, s_data.shape[0]):
@@ -264,8 +269,7 @@ if __name__ == '__main__':
                             print('missing data at pos = ', j, hour)
                 prev_hour = hour
 
-    # however no records about rainfall
-    complete_station = 11894
+    complete_station = 11894  # however no records about rainfall
     complete_station_data = pd.read_csv(
         'data/data_{}.csv'.format(complete_station), delimiter=';')
     fieldsToDrop = ['future_temp', 'validity_date', 'reference_date',
@@ -318,14 +322,14 @@ if __name__ == '__main__':
                 data[c] = data[c].apply(
                     shift_invalid_values, args=(abs(data[c].mean()), c))
 
-            # histogram for all features in one figure
+            # histograms for all features in one figure
             data.hist(figsize=(20, 10), bins=20)
             plt.savefig('hists/complete_hists/{}.png'.format(s))
             plt.close()
 
             os.mkdir('hists/{}/'.format(s))
 
-            # histogram for separate features
+            # histograms for separate features
             for c in data.columns:
                 ax = data.hist(c, figsize=(10, 8), bins=100)
                 plt.savefig('hists/{}/{}.png'.format(s, c))
@@ -340,3 +344,28 @@ if __name__ == '__main__':
         data = pd.read_csv('data/data_11816.csv', delimiter=';')
         data = data.drop(fieldsToDrop, axis=1)
         plot_features(data)
+
+    if (create_shmu_errors):
+        data = pd.read_csv('data/data_11816.csv', delimiter=';')
+        shmu_errors = [[] for i in range(24)]
+        seasonal_shmu_errors = {
+            'spring': [[] for i in range(24)],
+            'summer': [[] for i in range(24)],
+            'autumn': [[] for i in range(24)],
+            'winter': [[] for i in range(24)],
+        }
+
+        data_len = data.shape[0]
+        for i in range(data_len):
+            val_date = data.validity_date[i]
+            val_date_hour = parse_hour(val_date)
+            val_date_month = parse_month(val_date)
+
+            error = abs(
+                data.loc[i, 'current_temp'] - data.loc[i, 'future_temp_shmu'])
+
+            save_hour_value(shmu_errors, seasonal_shmu_errors,
+                            error, val_date_hour, val_date_month)
+
+        plot_hour_results(shmu_errors, seasonal_shmu_errors,
+                          'SHMU errors', 'shmu_errors')
