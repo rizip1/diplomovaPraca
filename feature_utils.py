@@ -3,52 +3,52 @@ import math
 import numpy as np
 import pandas as pd
 
-# TODO: move common action into separate functions,
-# merge what can be merged together
-
-
 # AUTOCORRECT FEATURES
 
 
 def get_autocorrect_err(model_errors, pos=0, interval=0, window_length=0,
-                        is_test_set=False, test_set_length=0):
+                        is_test_set=False):
+    offset = interval * window_length
 
     if (is_test_set):
-        return model_errors[-24:-24 + test_set_length]
+        return model_errors[pos - 24 - offset]
 
+    return model_errors[
+        pos - 24 - (2 * offset): pos - 24 - offset: interval]
+
+
+def get_autocorrect_err2(model_errors, pos=0, interval=0, window_length=0,
+                         is_test_set=False):
     autocorrect_col = np.array([])
-
-    for i in range(window_length):
-        autocorrect_col = np.append(
-            autocorrect_col, model_errors[-24 + pos - ((i + 1) * interval)])
-
-    return np.flip(autocorrect_col, axis=0)
-
-
-def get_autocorrect_var(model_errors, pos=0, interval=0, window_length=0,
-                        is_test_set=False, test_set_length=0):
-    autocorrect_col = np.array([])
+    offset = interval * window_length
 
     if (is_test_set):
-        for i in range(test_set_length):
-            index_day_before = -24 + i
-            errors = model_errors[index_day_before - 11: index_day_before + 1]
-            autocorrect_col = np.append(autocorrect_col,
-                                        np.sum(errors) / np.var(errors))
-        return np.var(errors)
+        pos_day_before = pos - 24 - offset
+        pos_two_days_before = pos - 48 - offset
+        e1 = model_errors[pos_two_days_before - 3: pos_two_days_before + 4]
+        e2 = model_errors[pos_day_before - 3: pos_day_before + 4]
 
-    for i in range(window_length):
-        index_day_before = -24 + pos - ((i + 1) * interval)
-        errors = model_errors[index_day_before - 11: index_day_before + 1]
-        res = np.sum(errors) / np.var(errors)
-        autocorrect_col = np.append(autocorrect_col, res)
+        total_diff = 0
+        for i in range(len(e1)):
+            total_diff += abs(e1[i] - e2[i])
+        return 1 / max(total_diff, 0.01)
 
-    return np.flip(autocorrect_col, axis=0)
+    for i in range(pos - 24 - (2 * offset), pos - 24 - offset, interval):
+        e1 = model_errors[i - 3: i + 4]
+        e2 = model_errors[i - 3 - 24: i + 4 - 24]
+
+        total_diff = 0
+        for i in range(len(e1)):
+            total_diff += abs(e1[i] - e2[i])
+
+        autocorrect_col = np.append(autocorrect_col, 1 / max(total_diff, 0.01))
+
+    return autocorrect_col
 
 
 autocorrect_map = {
     'err': get_autocorrect_err,
-    'err-var': get_autocorrect_var,
+    'err2': get_autocorrect_err2,
 }
 
 

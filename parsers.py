@@ -73,11 +73,11 @@ time when prediction was made and arg hours before. Options are
                         default=False,
                         help='Normalize with mean and std')
     parser.add_argument('--avg', action='store_true', dest='average_models',
-                        default=False,
+                        default=True,
                         help='Average models')
     parser.add_argument('--autocorrect', action='store',
                         dest='autocorrect',
-                        choices=['err', 'err-var', 'err-sum-var'],
+                        choices=['err', 'err2'],
                         default=False,
                         help='Use autocorrection')
     parser.add_argument('--verbose', action='store_true', dest='verbose',

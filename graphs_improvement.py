@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 '''
-Helper script for creating graphs from hardcoded data
+Helper script for comparing improvement of two models
 '''
 x = [(i + 1) for i in range(24)]
 

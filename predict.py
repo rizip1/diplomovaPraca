@@ -118,20 +118,20 @@ if __name__ == '__main__':
 
         fieldsToDrop.append('p_time_wind_direction')
 
+        # uncomment for testing on smaller intervals
+        # data = data.iloc[13000:, :].reset_index(drop=True)
+
         y = data.future_temp
         x = data.drop(fieldsToDrop, axis=1)
     else:
         data = pd.read_csv('cached_data.csv', delimiter=';', index_col=0)
         x = pd.read_csv('cached_x.csv', delimiter=';', index_col=0)
         y = pd.read_csv('cached_y.csv', delimiter=';', index_col=0)
-        y = pd.Series(y.values.ravel())  # TODO remove this hack
+        y = pd.Series(y.values.ravel())
 
     data.to_csv('cached_data.csv', sep=';')
     y.to_csv('cached_y.csv', sep=';', header='future_temp')
     x.to_csv('cached_x.csv', sep=';')
-
-    # uncomment for testing on smaller intervals
-    # data = data.iloc[13000:, :].reset_index(drop=True)
 
     print('Features used', x.columns, x.shape)
 

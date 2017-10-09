@@ -151,16 +151,14 @@ def save_improvement_to_file():
                 total_draws + total_improvements + total_worse))
 
 
-def save_autocorrect_state(model_errors, pred_length, x_train_sets,
-                           x_test):
+def save_autocorrect_state(model_errors, x_train, x_test):
     '''
     Used for testing purpose to check if autocorrection
     errors are picked the right way.
     Will finish execution of program when finished.
     '''
     pd.Series(model_errors).to_csv('test/model_errors.csv')
-    for i in range(pred_length):
-        x_train_sets[i].to_csv('test/{}.csv'.format(i))
+    x_train.to_csv('test/train.csv')
     x_test.to_csv('test/test.csv')
     import os
     os.sys.exit(1)
@@ -198,7 +196,10 @@ def contains_missing_data(x_train, y_train, x_test, y_test):
 
 
 def can_use_autocorrect(model_errors, interval, window_len):
-    return len(model_errors) > (interval * window_len) + 24
+    period = 24
+    error_window = 12
+    return len(model_errors) > (interval * window_len) + (2 * period) + \
+        error_window
 
 
 def get_best_model(models, x_train, y_train, weights):
@@ -291,12 +292,9 @@ def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae):
 
 
 def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
-            norm=False, average_models=False, autocorrect=False,
+            norm=False, average_models=True, autocorrect=False,
             verbose=False, skip_predictions=0):
     '''
-    TODO refactor:
-    This function is extremely long and does too much things.
-
     Predict by looking at conditions that occured every `interval`
     hours earlier.
     The `window_len` determines length of sliding window.
@@ -308,7 +306,6 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
     `window_len * interval` hours earlier.
     '''
 
-    # TODO copy data
     x_orig, y_orig, x_diff, y_diff = [None for i in range(4)]
     if (diff):
         x_orig = x.iloc[interval:]
@@ -316,161 +313,121 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         x_diff = x.diff(periods=interval).iloc[interval:]
         y_diff = y.diff(periods=interval).iloc[interval:]
     else:
-        x_orig, y_orig, x_diff, y_diff = [x, y, x, y]
+        x_orig, y_orig, x_diff, y_diff = [
+            x.copy(), y.copy(), x.copy(), y.copy()]
 
     data_len = x_diff.shape[0]
-
     predictions_made = 0
     iterations = 0
-
     mae_predict = 0
     mse_predict = 0
     mae_shmu = 0
     mse_shmu = 0
-    start = 0
     predicted_all = np.array([])
-    train_end = window_len * interval
+    start = window_len * interval
     model_errors = np.array([])
     model_predictions = np.array([])
     model_bias = 0
     cum_mse = []
     cum_mae = []
     cum_bias = []
-
     autocorrect_func = get_autocorrect_func(autocorrect)
 
-    while (train_end < data_len):
-        if (verbose and predictions_made > 0):
-            print('train_end', train_end, mae_predict /
+    for i in range(start, data_len):
+        if (verbose and predictions_made > 0 and (i % 100) == 0):
+            print('current pos', i, mae_predict /
                   predictions_made, mse_predict / predictions_made,
                   model_bias / predictions_made)
 
-        # Check how many prediction we can make within same ref_date
-        ref_date = data.reference_date[train_end]
-        ref_date_hour = parse_hour(ref_date)
-        ref_date_month = parse_month(ref_date)
-
-        # TODO get rid of this
-        pred_length = 0
-        while (data.reference_date[train_end + pred_length] == ref_date):
-            pred_length += 1
-            # Out of bounds
-            if (pred_length + train_end >= data_len):
-                break
-
-        x_train_sets = []
-        means = []
-        stds = []
-        y_train_sets_orig = []
-        y_train_sets = []
+        val_date = data.validity_date[i]
+        val_date_hour = parse_hour(val_date)
+        val_date_month = parse_month(val_date)
+        std, mean = [None, None]
 
         autocorrect_ready = can_use_autocorrect(
             model_errors, interval, window_len)
 
-        for i in range(pred_length):
-            x_train = x_diff.iloc[start + i:train_end:interval, :]
-            if (autocorrect and autocorrect_ready):
-                autocorrect_col = autocorrect_func(model_errors, i,
-                                                   interval, window_len)
-                x_train['autocorrect'] = pd.Series(
-                    autocorrect_col, index=x_train.index)
-            if (norm):
-                std = x_train.std()
-                mean = x_train.mean()
-                means.append(mean)
-                stds.append(std)
-                x_train = (x_train - mean) / std
+        x_train = x_diff.iloc[i - start:i:interval, :]
+        y_train_orig = y_orig.iloc[i - start:i:interval]
+        y_train = y_diff.iloc[i - start:i:interval]
 
-            x_train_sets.append(x_train)
-            y_train_sets_orig.append(y_orig.iloc[start + i:train_end:interval])
-            y_train_sets.append(y_diff.iloc[start + i:train_end:interval])
-
-        x_test = x_diff.iloc[train_end:train_end + pred_length, :]
         if (autocorrect and autocorrect_ready):
-            x_test['autocorrect'] = pd.Series(autocorrect_func(
-                model_errors, is_test_set=True,
-                test_set_length=pred_length), index=x_test.index)
+            autocorrect_col = autocorrect_func(model_errors, i,
+                                               interval, window_len)
+            x_train['autocorrect'] = pd.Series(
+                autocorrect_col, index=x_train.index)
+        if (norm):
+            std = x_train.std()
+            mean = x_train.mean()
+            x_train = (x_train - mean) / std
 
-        x_test_orig = x_orig.iloc[train_end:train_end + pred_length, :]
-        y_test = y_orig.iloc[train_end:train_end + pred_length]
+        x_test = x_diff.iloc[i, :]
+        x_test_orig = x_orig.iloc[i, :]
+        y_test = y_orig.iloc[i]
 
-        # for testing purpose if autocorrect data are correct
+        if (autocorrect and autocorrect_ready):
+            x_test['autocorrect'] = autocorrect_func(
+                model_errors, is_test_set=True)
+
+        # uncomment for testing purpose if autocorrect data are correct
         '''
         if (predictions_made > 0):
-            save_autocorrect_state(model_errors, pred_length, x_train_sets,
-                               x_test)
+            save_autocorrect_state(model_errors, x_train, x_test)
         '''
 
-        for i in range(pred_length):
-            if (contains_missing_data(
-                    x_train_sets[i].values, y_train_sets[i].values,
-                    x_test.iloc[i].values, np.matrix(y_test.iloc[i]))):
-                continue
+        if (contains_missing_data(
+                x_train.values, y_train.values,
+                x_test.values, np.matrix(y_test))):
+            continue
 
-            best_model = None
-            weights = get_weights(weight, x_train_sets[i])
-            y_predicted = 0
+        best_model = None
+        weights = get_weights(weight, x_train)
+        y_predicted = 0
 
-            x_test_item = x_test.iloc[i, :]
-            if (norm):
-                x_test_item = (x_test_item - means[i]) / stds[i]
+        if (norm):
+            x_test = (x_test - mean) / std
 
-            if (not average_models):
-                best_model = get_best_model(
-                    models, x_train_sets[i], y_train_sets[i], weights)
-                y_predicted = best_model.predict(
-                    x_test_item.values.reshape(1, -1))
-            else:
-                y_predicted = get_avg_prediction(
-                    models, x_train_sets[i],
-                    y_train_sets[i],
-                    x_test_item.values.reshape(1, -1))
+        if (not average_models):
+            best_model = get_best_model(models, x_train, y_train, weights)
+            y_predicted = best_model.predict(x_test.values.reshape(1, -1))
+        else:
+            y_predicted = get_avg_prediction(models, x_train, y_train,
+                                             x_test.values.reshape(1, -1))
 
-            if (diff):
-                y_predicted += y_train_sets_orig[i].iloc[-1]
+        if (diff):
+            y_predicted += y_train_orig.iloc[-1]
 
-            model_errors = np.append(
-                model_errors, (y_predicted - y_test.iloc[i])[0])
+        model_errors = np.append(model_errors, (y_predicted - y_test)[0])
+        model_predictions = np.append(model_predictions, y_predicted)
 
-            model_predictions = np.append(
-                model_predictions, y_predicted)
+        if (autocorrect and not autocorrect_ready):
+            continue
 
-            if (autocorrect and not autocorrect_ready):
-                continue
+        iterations += 1
+        if (iterations <= skip_predictions):
+            continue
 
-            iterations += 1
+        # add into predicted_all
+        predicted_all = np.hstack((predicted_all, y_predicted))
+        predictions_made += 1
 
-            if (iterations <= skip_predictions):
-                continue
+        shmu_value = x_test_orig.future_temp_shmu
+        shmu_error = abs(y_test - shmu_value)
+        predicted_error = abs(y_test - y_predicted)
+        improvement = (shmu_error - predicted_error)[0]
+        save_hour_value(improvements, season_improvements,
+                        improvement, val_date_hour, val_date_month)
 
-            predictions_made += 1
+        mae_shmu += np.sum(abs(y_test - shmu_value))
+        mse_shmu += np.sum((y_test - shmu_value) ** 2)
 
-            # add into predicted_all
-            predicted_all = np.hstack((predicted_all, y_predicted))
+        mae_predict += np.sum(abs(y_test - y_predicted))
+        mse_predict += np.sum((y_test - y_predicted) ** 2)
+        model_bias += (y_test - y_predicted)[0]
 
-            shmu_value = x_test_orig.future_temp_shmu.iloc[i]
-            test_value = y_test.iloc[i]
-
-            shmu_error = abs(test_value - shmu_value)
-            predicted_error = abs(test_value - y_predicted)
-            improvement = (shmu_error - predicted_error)[0]
-            save_hour_value(improvements, season_improvements,
-                            improvement, ref_date_hour + i, ref_date_month)
-
-            mae_shmu += np.sum(abs(test_value - shmu_value))
-            mse_shmu += np.sum((test_value - shmu_value) ** 2)
-
-            mae_predict += np.sum(abs(test_value - y_predicted))
-            mse_predict += np.sum((test_value - y_predicted) ** 2)
-            model_bias += (test_value - y_predicted)[0]
-
-            cum_mse.append(mse_predict / predictions_made)
-            cum_mae.append(mae_predict / predictions_made)
-            cum_bias.append(model_bias / predictions_made)
-
-        # shift interval for learning
-        train_end += pred_length
-        start += pred_length
+        cum_mse.append(mse_predict / predictions_made)
+        cum_mae.append(mae_predict / predictions_made)
+        cum_bias.append(model_bias / predictions_made)
 
     save_improvement_to_file()
     plot_hour_results(improvements, season_improvements,
@@ -484,7 +441,7 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         'predicted_all': np.array(predicted_all),
         'predictions_count': predictions_made,
         'model_bias': model_bias / predictions_made,
-        'cum_mse': cum_mse[200:],
+        'cum_mse': cum_mse[200:],  # removing first values improves readability
         'cum_mae': cum_mae[200:],
         'cum_bias': cum_bias[200:],
     }

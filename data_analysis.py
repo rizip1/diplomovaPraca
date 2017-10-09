@@ -362,7 +362,7 @@ if __name__ == '__main__':
             val_date_month = parse_month(val_date)
 
             error = abs(
-                data.loc[i, 'current_temp'] - data.loc[i, 'future_temp_shmu'])
+                data.loc[i, 'future_temp'] - data.loc[i, 'future_temp_shmu'])
 
             save_hour_value(shmu_errors, seasonal_shmu_errors,
                             error, val_date_hour, val_date_month)
