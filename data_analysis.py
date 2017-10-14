@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import argparse
 import re
+import math
 
 from utils import parse_month, parse_hour
 from utils import save_hour_value, plot_hour_results
@@ -44,6 +45,9 @@ def get_parser():
     parser.add_argument('--shmu-errors', action='store_true', default=False,
                         dest='shmu_errors',
                         help='Will plot shmu errors in time')
+    parser.add_argument('--stable-weather', action='store_true', default=False,
+                        dest='stable_weather',
+                        help='Will plot table weather')
     return parser
 
 
@@ -236,6 +240,7 @@ if __name__ == '__main__':
     create_features = args.features
     create_missing_data = args.data_missing
     create_shmu_errors = args.shmu_errors
+    stable_weather = args.stable_weather
 
     stations = get_stations()
 
@@ -369,3 +374,78 @@ if __name__ == '__main__':
 
         plot_hour_results(shmu_errors, seasonal_shmu_errors,
                           'SHMU errors', 'shmu_errors')
+    if (stable_weather):
+        data = pd.read_csv('data/data_11816.csv', delimiter=';')
+        data_len = data.shape[0]
+
+        scores = []
+        window_pos = [-2, -1, 0, 1, 2]
+        window_weights = [0.15, 0.6, 1, 0.6, 0.15]
+        window_sum = np.sum(window_weights)
+        total_stable_count = 0
+        period = 24
+        max_samples = 1000
+        all_stable_positions = []
+
+        # 0 - stable enough
+        # 1 - not stable enough
+
+        current_offset = 0
+
+        for i in range(2 * period, data_len - period):
+            score = 0
+            for p in window_pos:
+                weight = window_weights[p]
+                score += weight * abs(data.loc[i + p, 'current_temp'] -
+                                      data.loc[i + p - period, 'current_temp'])
+            scores.append(score / window_sum)
+
+            if (len(scores) >= max_samples or i == data_len - period - 1):
+                plt.figure(figsize=(12, 6))
+                ax = plt.subplot(111)
+                box = ax.get_position()
+                ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+                plt.plot(scores, 'b', label='total difference')
+                plt.title(
+                    'Stable weather analysis from sample {}'.format(
+                        current_offset + 2 * period))
+                plt.ylabel('Difference')
+                plt.xlabel('Samples')
+
+                for pos, v in enumerate(scores):
+                    scores[pos] = (v > 1) and 1 or 0
+
+                for pos, v in enumerate(scores):
+                    retain = True
+                    # at least 4 stable hours one after another
+                    # to mark position as really stable
+                    for f in range(1, 5):
+                        if (pos + f < len(scores)):
+                            if (scores[pos + f] != 0):
+                                retain = False
+                    if (not retain):
+                        scores[pos] = 1
+
+                x_axis = []
+                y_axis = []
+
+                for pos, v in enumerate(scores):
+                    if (v == 0):
+                        total_stable_count += 1
+                        x_axis.append(pos)
+                        y_axis.append(v)
+                        all_stable_positions.append(
+                            pos + 2 * period + current_offset)
+
+                ax.scatter(x_axis, y_axis, marker='.',
+                           color='g', label='stable weather')
+                plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
+                plt.savefig('stable/{}.png'.format(i))
+                plt.close()
+
+                current_offset += max_samples
+                del scores[:]
+
+        print('total stable count', total_stable_count)
+        pd.Series(all_stable_positions).to_csv(
+            'stable/stable_times.csv', index=False)
