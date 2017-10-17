@@ -3,6 +3,7 @@ import sklearn.svm as svm
 import sklearn.ensemble as dt
 import sklearn.neural_network as nn
 import sklearn.neighbors as ng
+import sklearn.gaussian_process as gp
 import pandas as pd
 import os
 
@@ -13,10 +14,12 @@ from feature_utils import feature_lagged_by_hours_p_time
 from feature_utils import shmu_prediction_time_error
 from feature_utils import add_shmu_error
 from feature_utils import add_min_max
+from feature_utils import add_morning_and_afternoon_temp
 
 from utils import get_bias, save_predictions, save_bias
 from utils import save_errors, predict
 from parsers import get_predict_parser
+from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
@@ -45,6 +48,8 @@ if __name__ == '__main__':
     shmu_error_moment = args.shmu_error_moment
 
     # feature switches
+    afternoon_morning = args.afternoon_morning
+
     shmu_error = int(args.shmu_error)
 
     shmu_error_p_time = args.shmu_error_p_time
@@ -80,6 +85,8 @@ if __name__ == '__main__':
     if (not use_cache):
         data = pd.read_csv(args.data_file, delimiter=';')
         print('Preparing data')
+
+        data = add_morning_and_afternoon_temp(data, afternoon_morning)
 
         data = shmu_prediction_time_error(data,
                                           shmu_error_p_time_lags,
@@ -170,6 +177,10 @@ if __name__ == '__main__':
     elif (model_type == 'ridge-cv'):
         models.append(lm.RidgeCV(alphas=[0.1, 0.3, 1.0, 3, 10.0],
                                  fit_intercept=True, normalize=False))
+    elif (model_type == 'gauss'):
+        kernel = ConstantKernel() + Matern(length_scale=2, nu=3 / 2) + \
+            WhiteKernel(noise_level=1)
+        models.append(gp.GaussianProcessRegressor(kernel=kernel))
     elif (model_type == 'gradient-boost'):
         models.append(dt.GradientBoostingRegressor(
             n_estimators=300, learning_rate=0.05, max_depth=3))

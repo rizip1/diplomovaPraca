@@ -22,6 +22,7 @@ weights will be used.''', type=float)
     parser.add_argument('--model', action='store', dest='model',
                         default='reg',
                         choices=['reg', 'svr', 'rf', 'kn', 'nn', 'ridge',
+                                 'gauss',
                                  'ridge-cv', 'ens', 'lasso', 'gradient-boost'],
                         help="Model to use for predictions:\n")
     parser.add_argument('--shmu-error', action='store',
@@ -72,6 +73,9 @@ time when prediction was made and arg hours before. Options are
     parser.add_argument('--norm', action='store_true', dest='norm',
                         default=False,
                         help='Normalize with mean and std')
+    parser.add_argument('--afternoon-morning', action='store_true',
+                        dest='afternoon_morning', default=False,
+                        help='Include morning resp afternoon temperature')
     parser.add_argument('--avg', action='store_true', dest='average_models',
                         default=True,
                         help='Average models')

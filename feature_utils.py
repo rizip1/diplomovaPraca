@@ -183,6 +183,33 @@ def shmu_prediction_time_error(data, lags=1, lag_by=1, exp=0):
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
 
 
+def add_morning_and_afternoon_temp(data, perform=False):
+    '''
+    Add temperature measured at 6pm for predictions between
+    1-12am and at 6am for predictions between 13-00pm.
+    '''
+    if (not perform):
+        return data
+    data_size = data.shape[0]
+    new_start = 12
+    new_col = 'afternoon-morning_temp'
+    data[new_col] = 0  # will set all rows to zero
+
+    for j in range(new_start, data.shape[0]):
+        val_date = data.loc[j, 'validity_date']
+        m = re.search(
+            r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
+            val_date)
+        hour = int(m.group(1))
+        if (hour == 0):
+            hour = 24
+        hour -= 12  # get one hour before the prediction was made
+        data.loc[j, new_col] = data.loc[j - hour - 5, 'current_temp']
+
+    # get rid of rows for which we do not have data
+    return data.iloc[new_start:data_size, :].reset_index(drop=True)
+
+
 def add_moments(data, moments):
     if (not moments):
         return data
