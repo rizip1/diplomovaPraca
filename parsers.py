@@ -22,7 +22,7 @@ weights will be used.''', type=float)
     parser.add_argument('--model', action='store', dest='model',
                         default='reg',
                         choices=['reg', 'svr', 'rf', 'kn', 'nn', 'ridge',
-                                 'gauss',
+                                 'gauss', 'lasso-cv', 'elastic-cv',
                                  'ridge-cv', 'ens', 'lasso', 'gradient-boost'],
                         help="Model to use for predictions:\n")
     parser.add_argument('--shmu-error', action='store',

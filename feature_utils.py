@@ -84,6 +84,8 @@ def feature_lagged_by_hours_p_time(data, feature, lags, lag_by=12):
                 r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
                 ref_date)
             hour = int(m.group(1))
+            if (hour == 0):
+                hour = 24
             if (hour > 12):
                 hour -= 12
 
@@ -165,6 +167,8 @@ def shmu_prediction_time_error(data, lags=1, lag_by=1, exp=0):
                 r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
                 ref_date)
             hour = int(m.group(1))
+            if (hour == 0):
+                hour = 24
             if (hour > 12):
                 hour -= 12
 
@@ -203,7 +207,8 @@ def add_morning_and_afternoon_temp(data, perform=False):
         hour = int(m.group(1))
         if (hour == 0):
             hour = 24
-        hour -= 12  # get one hour before the prediction was made
+        if (hour > 12):
+            hour -= 12  # get one hour before the prediction was made
         data.loc[j, new_col] = data.loc[j - hour - 5, 'current_temp']
 
     # get rid of rows for which we do not have data
@@ -232,6 +237,8 @@ def add_moments(data, moments):
                 r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
                 ref_date)
             hour = int(m.group(1))
+            if (hour == 0):
+                hour = 24
             if (hour > 12):
                 hour -= 12
 
@@ -274,6 +281,8 @@ def add_min_max(data, min_max):
                 r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
                 ref_date)
             hour = int(m.group(1))
+            if (hour == 0):
+                hour = 24
             if (hour > 12):
                 hour -= 12
 
@@ -315,6 +324,8 @@ def shmu_error_prediction_time_moment(data, moments):
                 r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
                 ref_date)
             hour = int(m.group(1))
+            if (hour == 0):
+                hour = 24
             if (hour > 12):
                 hour -= 12
 

@@ -15,6 +15,33 @@ season_improvements = {
 }
 
 
+def get_train_data(x_diff, y_orig, y_diff, i, start, interval, neighbors=True):
+    x_train, y_train_orig, y_train = [None for x in range(3)]
+    if (neighbors):
+        weight = 0.6
+        x_train, y_train_orig, y_train = [], [], []
+        for j in range(i - start, i, interval):
+            x_train.append(x_diff.iloc[j - 1, :])
+            x_train.append(x_diff.iloc[j, :])
+            x_train.append(x_diff.iloc[j + 1, :])
+
+            y_train_orig.append(y_orig.iloc[j - 1])
+            y_train_orig.append(y_orig.iloc[j])
+            y_train_orig.append(y_orig.iloc[j + 1])
+
+            y_train.append(y_diff.iloc[j - 1])
+            y_train.append(y_diff.iloc[j])
+            y_train.append(y_diff.iloc[j + 1])
+        x_train = np.array(x_train)
+        y_train_orig = np.array(y_train_orig)
+        y_train = np.array(y_train)
+    else:
+        x_train = x_diff.iloc[i - start:i:interval, :].values
+        y_train_orig = y_orig.iloc[i - start:i:interval].values
+        y_train = y_diff.iloc[i - start:i:interval].values
+    return x_train, y_train_orig, y_train
+
+
 def save_hour_value(all_results, seasonal_results, value, period, month):
     all_results[period].append(value)
     if (month in [1, 2, 3]):
@@ -347,9 +374,12 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         autocorrect_ready = can_use_autocorrect(
             model_errors, interval, window_len)
 
-        x_train = x_diff.iloc[i - start:i:interval, :]
-        y_train_orig = y_orig.iloc[i - start:i:interval]
-        y_train = y_diff.iloc[i - start:i:interval]
+        x_train, y_train, y_train_orig = get_train_data(
+            x_diff, y_orig, y_diff, i, start, interval, neighbors=False)
+
+        # x_train = x_diff.iloc[i - start:i:interval, :]
+        # y_train_orig = y_orig.iloc[i - start:i:interval]
+        # y_train = y_diff.iloc[i - start:i:interval]
 
         if (autocorrect and autocorrect_ready):
             autocorrect_col = autocorrect_func(model_errors, i,
@@ -376,8 +406,8 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         '''
 
         if (contains_missing_data(
-                x_train.values, y_train.values,
-                x_test.values, np.matrix(y_test))):
+                x_train, y_train,
+                x_test, np.matrix(y_test))):
             continue
 
         best_model = None

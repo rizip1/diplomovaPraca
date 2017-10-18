@@ -7,6 +7,10 @@ import sklearn.gaussian_process as gp
 import pandas as pd
 import os
 
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import TimeSeriesSplit
+
 from feature_utils import add_moments
 from feature_utils import shmu_error_prediction_time_moment
 from feature_utils import feature_lagged_by_hours
@@ -144,22 +148,30 @@ if __name__ == '__main__':
 
     models = []
     if (model_type == 'svr'):
-        models.append(svm.SVR(C=1, kernel='linear', epsilon=0.05))
+        # larger C = penalize the cost of missclasification a lot
+        cv = TimeSeriesSplit(n_splits=5)
+        parameters = {
+            'C': [0.01, 0.1, 1, 10, 50],
+            'epsilon': [0.05, 0.1]
+        }
+        s = svm.SVR(kernel='linear')
+        models.append(GridSearchCV(s, parameters, cv=cv))
         # models.append(svm.SVR(C=1, kernel='rbf', epsilon=0.1, gamma=0.05))
     elif (model_type == 'reg'):
         models.append(lm.LinearRegression(fit_intercept=fit_intercept))
     elif (model_type == 'rf'):
         models.append(dt.RandomForestRegressor(n_estimators=50, max_depth=5))
     elif (model_type == 'nn'):
-        models.append(nn.MLPRegressor(hidden_layer_sizes=(
-            20,), max_iter=15, activation='relu',
-            solver='lbfgs', alpha=0.001))
-        models.append(nn.MLPRegressor(hidden_layer_sizes=(
-            20,), max_iter=15, activation='relu',
-            solver='lbfgs', alpha=0.001))
-        models.append(nn.MLPRegressor(hidden_layer_sizes=(
-            20,), max_iter=15, activation='relu',
-            solver='lbfgs', alpha=0.001))
+        # smaller alpha = more regularization
+        cv = TimeSeriesSplit(n_splits=5)
+        parameters = {
+            'hidden_layer_sizes': [
+                [30], [50], [100], [30, 30]
+            ],
+            'alpha': [1, 0.1, 0.01, 0.001, 0.0001]
+        }
+        nn = nn.MLPRegressor(activation='relu', solver='lbfgs')
+        models.append(RandomizedSearchCV(nn, parameters, n_iter=5, cv=cv))
     elif (model_type == 'kn'):
         models.append(ng.KNeighborsRegressor())
     elif (model_type == 'ens'):
@@ -171,12 +183,19 @@ if __name__ == '__main__':
     elif (model_type == 'lasso'):
         models.append(lm.Lasso(alpha=0.1, copy_X=True, fit_intercept=True,
                                max_iter=50, normalize=False))
+    elif (model_type == 'lasso-cv'):
+        cv = TimeSeriesSplit(n_splits=5)
+        models.append(lm.LassoCV(fit_intercept=True,
+                                 normalize=False, cv=cv))
     elif (model_type == 'ridge'):
         models.append(lm.Ridge(alpha=2, copy_X=True, fit_intercept=True,
                                normalize=False))
     elif (model_type == 'ridge-cv'):
-        models.append(lm.RidgeCV(alphas=[0.1, 0.3, 1.0, 3, 10.0],
-                                 fit_intercept=True, normalize=False))
+        cv = TimeSeriesSplit(n_splits=5)
+        models.append(lm.RidgeCV(fit_intercept=True, normalize=False, cv=cv))
+    elif (model_type == 'elastic-cv'):
+        cv = TimeSeriesSplit(n_splits=5)
+        models.append(lm.ElasticNetCV(cv=cv))
     elif (model_type == 'gauss'):
         kernel = ConstantKernel() + Matern(length_scale=2, nu=3 / 2) + \
             WhiteKernel(noise_level=1)
