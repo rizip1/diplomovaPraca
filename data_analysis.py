@@ -449,3 +449,56 @@ if __name__ == '__main__':
         print('total stable count', total_stable_count)
         pd.Series(all_stable_positions).to_csv(
             'stable/stable_times.csv', index=False)
+    if (True):
+        data = pd.read_csv('data/data_11816.csv', delimiter=';')
+        data_len = data.shape[0]
+
+        shmu_temps = [[] for i in range(24)]
+        real_temps = [[] for i in range(24)]
+        max_len = 120
+
+        for i in range(data_len):
+            val_date = data.validity_date[i]
+            val_date_hour = parse_hour(val_date)
+            shmu_temps[val_date_hour].append(data.future_temp_shmu[i])
+            real_temps[val_date_hour].append(data.future_temp[i])
+
+        '''
+        for index, values in enumerate(shmu_temps):
+            plt.figure(figsize=(12, 6))
+            ax = plt.subplot(111)
+            box = ax.get_position()
+            ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+            plt.title('test')
+            plt.ylabel('Difference')
+            plt.xlabel('Samples')
+            plt.plot(values, 'b', label='total difference')
+            plt.savefig('time_series/shmu_{}.png'.format(index))
+            plt.close()
+
+        for index, values in enumerate(real_temps):
+            plt.figure(figsize=(12, 6))
+            ax = plt.subplot(111)
+            box = ax.get_position()
+            ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+            plt.title('test')
+            plt.ylabel('Difference')
+            plt.xlabel('Samples')
+            plt.plot(values, 'b', label='total difference')
+            plt.savefig('time_series/real_{}.png'.format(index))
+            plt.close()
+        '''
+
+        for index, values in enumerate(shmu_temps):
+            v = values[300:420]
+            plt.figure(figsize=(12, 6))
+            ax = plt.subplot(111)
+            box = ax.get_position()
+            ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+            plt.title('test')
+            plt.ylabel('Difference')
+            plt.xlabel('Samples')
+            plt.plot(pd.Series(np.array(v) ** (1 / 1000)).diff(),
+                     'b', label='total difference')
+            plt.savefig('time_series/shmu_diff_{}.png'.format(index))
+            plt.close()

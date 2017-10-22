@@ -4,7 +4,13 @@ import numpy as np
 import math
 import pandas as pd
 
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.graphics.gofplots import qqplot
+from statsmodels.stats.stattools import durbin_watson
 from feature_utils import get_autocorrect_func
+
+from scipy.stats.mstats import normaltest
+from scipy.stats import norm
 
 improvements = [[] for i in range(24)]
 season_improvements = {
@@ -18,27 +24,26 @@ season_improvements = {
 def get_train_data(x_diff, y_orig, y_diff, i, start, interval, neighbors=True):
     x_train, y_train_orig, y_train = [None for x in range(3)]
     if (neighbors):
-        weight = 0.6
         x_train, y_train_orig, y_train = [], [], []
         for j in range(i - start, i, interval):
-            x_train.append(x_diff.iloc[j - 1, :])
-            x_train.append(x_diff.iloc[j, :])
-            x_train.append(x_diff.iloc[j + 1, :])
+            x_train.append(x_diff[j - 1, :])
+            x_train.append(x_diff[j, :])
+            x_train.append(x_diff[j + 1, :])
 
-            y_train_orig.append(y_orig.iloc[j - 1])
-            y_train_orig.append(y_orig.iloc[j])
-            y_train_orig.append(y_orig.iloc[j + 1])
+            y_train_orig.append(y_orig[j - 1])
+            y_train_orig.append(y_orig[j])
+            y_train_orig.append(y_orig[j + 1])
 
-            y_train.append(y_diff.iloc[j - 1])
-            y_train.append(y_diff.iloc[j])
-            y_train.append(y_diff.iloc[j + 1])
+            y_train.append(y_diff[j - 1])
+            y_train.append(y_diff[j])
+            y_train.append(y_diff[j + 1])
         x_train = np.array(x_train)
         y_train_orig = np.array(y_train_orig)
         y_train = np.array(y_train)
     else:
-        x_train = x_diff.iloc[i - start:i:interval, :].values
-        y_train_orig = y_orig.iloc[i - start:i:interval].values
-        y_train = y_diff.iloc[i - start:i:interval].values
+        x_train = x_diff[i - start:i:interval, :]
+        y_train_orig = y_orig[i - start:i:interval]
+        y_train = y_diff[i - start:i:interval]
     return x_train, y_train_orig, y_train
 
 
@@ -191,6 +196,28 @@ def save_autocorrect_state(model_errors, x_train, x_test):
     os.sys.exit(1)
 
 
+def plot_normality(errors):
+    # based on D’Agostino and Pearson’s test that combines
+    # skew and kurtosis to produce an omnibus test of normality.
+    print('Normality p-value: ', normaltest(errors).pvalue)
+
+    mu, std = norm.fit(errors)
+    plt.figure(figsize=(12, 6))
+    plt.hist(errors, bins=30, normed=True)
+    xmin, xmax = plt.xlim()
+    x = np.linspace(xmin, xmax, 100)
+    p = norm.pdf(x, mu, std)
+    plt.plot(x, p, 'k', linewidth=2)
+    title = "Fit results: mu = %.2f,  std = %.2f" % (mu, std)
+    plt.title(title)
+    plt.savefig('other/errors_hist.png')
+    plt.close()
+
+    qqplot(errors)
+    plt.savefig('other/errors_qq.png')
+    plt.close()
+
+
 def parse_hour(date):
     m = re.search(
         r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
@@ -235,8 +262,12 @@ def get_best_model(models, x_train, y_train, weights):
     for m in models:
         score = -float('inf')
         if (weights is not None):
-            m.fit(x_train, y_train, sample_weight=weights)
-            score = m.score(x_train, y_train, sample_weight=weights)
+            try:
+                m.fit(x_train, y_train, sample_weight=weights)
+                score = m.score(x_train, y_train, sample_weight=weights)
+            except:
+                m.fit(x_train, y_train)
+                score = m.score(x_train, y_train)
         else:
             m.fit(x_train, y_train)
             score = m.score(x_train, y_train)
@@ -246,10 +277,13 @@ def get_best_model(models, x_train, y_train, weights):
     return best_model
 
 
-def get_avg_prediction(models, x_train, y_train, x_test):
+def get_avg_prediction(models, x_train, y_train, x_test, weights):
     predicted = 0
     for m in models:
-        m.fit(x_train, y_train)
+        try:
+            m.fit(x_train, y_train, sample_weight=weights)
+        except:
+            m.fit(x_train, y_train)
         predicted += m.predict(x_test)
     return predicted / len(models)
 
@@ -291,7 +325,10 @@ def save_bias(cum_bias):
     plt.close()
 
 
-def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae):
+def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae,
+                model_hour_errors):
+    max_count = 500
+
     plt.figure(figsize=(12, 6))
     ax = plt.subplot(111)
     box = ax.get_position()
@@ -301,8 +338,34 @@ def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae):
     plt.title('Temperature errors')
     plt.ylabel('Error')
     plt.xlabel('Samples')
-    plt.savefig('other/errors.png')
+    plt.savefig('other/errors/errors.png')
     plt.close()
+
+    for i in range(0, len(predicted_errors), max_count):
+        end = min(i + max_count, len(predicted_errors))
+        plt.figure(figsize=(12, 6))
+        ax = plt.subplot(111)
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+        plt.plot(predicted_errors[i:end], 'k', label='predicted errors')
+        plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
+        plt.title('Temperature errors')
+        plt.ylabel('Error')
+        plt.xlabel('Samples')
+        plt.savefig('other/errors/errors_{}.png'.format(i))
+        plt.close()
+
+    for i in range(24):
+        print(durbin_watson(model_hour_errors[i]))
+        plot_acf(model_hour_errors[i], lags=60, alpha=0.01)
+        plt.savefig('other/errors/errors_autocorr_{}.png'.format(i))
+
+    # autocorrelation - correlation with itself in previous times
+    # correlation is shown on y-axis
+
+    # 'blue-clouds' shows confidence interval
+    # when outside those there is correlation with more that 95%
+    # qqplot(predicted_errors)  # correlogram/autocorrelation plot
 
     plt.figure(figsize=(12, 6))
     ax = plt.subplot(111)
@@ -314,11 +377,12 @@ def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae):
     plt.title('Cummulative errors')
     plt.ylabel('Error')
     plt.xlabel('Samples')
-    plt.savefig('other/cum_errors.png')
+    plt.savefig('other/errors/cum_errors.png')
     plt.close()
 
 
-def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
+def predict(data, x, y, weight, models, shmu_predictions, window_len,
+            interval=12, diff=False,
             norm=False, average_models=True, autocorrect=False,
             verbose=False, skip_predictions=0):
     '''
@@ -335,10 +399,11 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
 
     x_orig, y_orig, x_diff, y_diff = [None for i in range(4)]
     if (diff):
-        x_orig = x.iloc[interval:]
-        y_orig = y.iloc[interval:]
-        x_diff = x.diff(periods=interval).iloc[interval:]
-        y_diff = y.diff(periods=interval).iloc[interval:]
+        pass
+        # x_orig = x.iloc[interval:]
+        # y_orig = y.iloc[interval:]
+        # x_diff = x.diff(periods=interval).iloc[interval:]
+        # y_diff = y.diff(periods=interval).iloc[interval:]
     else:
         x_orig, y_orig, x_diff, y_diff = [
             x.copy(), y.copy(), x.copy(), y.copy()]
@@ -359,6 +424,7 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
     cum_mae = []
     cum_bias = []
     autocorrect_func = get_autocorrect_func(autocorrect)
+    model_hour_errors = [[] for i in range(24)]
 
     for i in range(start, data_len):
         if (verbose and predictions_made > 0 and (i % 100) == 0):
@@ -377,10 +443,6 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         x_train, y_train, y_train_orig = get_train_data(
             x_diff, y_orig, y_diff, i, start, interval, neighbors=False)
 
-        # x_train = x_diff.iloc[i - start:i:interval, :]
-        # y_train_orig = y_orig.iloc[i - start:i:interval]
-        # y_train = y_diff.iloc[i - start:i:interval]
-
         if (autocorrect and autocorrect_ready):
             autocorrect_col = autocorrect_func(model_errors, i,
                                                interval, window_len)
@@ -391,9 +453,9 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
             mean = x_train.mean()
             x_train = (x_train - mean) / std
 
-        x_test = x_diff.iloc[i, :]
-        x_test_orig = x_orig.iloc[i, :]
-        y_test = y_orig.iloc[i]
+        x_test = x_diff[i, :]
+        x_test_orig = x_orig[i, :]
+        y_test = y_orig[i]
 
         if (autocorrect and autocorrect_ready):
             x_test['autocorrect'] = autocorrect_func(
@@ -419,16 +481,18 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
 
         if (not average_models):
             best_model = get_best_model(models, x_train, y_train, weights)
-            y_predicted = best_model.predict(x_test.values.reshape(1, -1))
+            y_predicted = best_model.predict(x_test.reshape(1, -1))
         else:
             y_predicted = get_avg_prediction(models, x_train, y_train,
-                                             x_test.values.reshape(1, -1))
+                                             x_test.reshape(1, -1), weights)
 
         if (diff):
-            y_predicted += y_train_orig.iloc[-1]
+            y_predicted += y_train_orig[-1]
 
-        model_errors = np.append(model_errors, (y_predicted - y_test)[0])
+        model_error = (y_predicted - y_test)[0]
+        model_errors = np.append(model_errors, model_error)
         model_predictions = np.append(model_predictions, y_predicted)
+        model_hour_errors[val_date_hour].append(model_error)
 
         if (autocorrect and not autocorrect_ready):
             continue
@@ -441,7 +505,7 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
         predicted_all = np.hstack((predicted_all, y_predicted))
         predictions_made += 1
 
-        shmu_value = x_test_orig.future_temp_shmu
+        shmu_value = shmu_predictions[i]
         shmu_error = abs(y_test - shmu_value)
         predicted_error = abs(y_test - y_predicted)
         improvement = (shmu_error - predicted_error)[0]
@@ -453,7 +517,7 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
 
         mae_predict += np.sum(abs(y_test - y_predicted))
         mse_predict += np.sum((y_test - y_predicted) ** 2)
-        model_bias += (y_test - y_predicted)[0]
+        model_bias += (y_predicted - y_test)[0]
 
         cum_mse.append(mse_predict / predictions_made)
         cum_mae.append(mae_predict / predictions_made)
@@ -462,8 +526,12 @@ def predict(data, x, y, weight, models, window_len, interval=12, diff=False,
     save_improvement_to_file()
     plot_hour_results(improvements, season_improvements,
                       'Improvements', 'improvements')
+    plot_normality(model_errors)
+    pd.Series(model_errors).to_csv(
+        'other/compare_errors/errors.csv', index=False)
 
     return {
+        'model_hour_errors': model_hour_errors,
         'mae_predict': mae_predict / predictions_made,
         'mae_shmu': mae_shmu / predictions_made,
         'mse_predict': mse_predict / predictions_made,

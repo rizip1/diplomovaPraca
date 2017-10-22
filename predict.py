@@ -3,13 +3,12 @@ import sklearn.svm as svm
 import sklearn.ensemble as dt
 import sklearn.neural_network as nn
 import sklearn.neighbors as ng
-import sklearn.gaussian_process as gp
 import pandas as pd
 import os
 
-from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import TimeSeriesSplit
+from sklearn.preprocessing import PolynomialFeatures
 
 from feature_utils import add_moments
 from feature_utils import shmu_error_prediction_time_moment
@@ -23,7 +22,6 @@ from feature_utils import add_morning_and_afternoon_temp
 from utils import get_bias, save_predictions, save_bias
 from utils import save_errors, predict
 from parsers import get_predict_parser
-from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
@@ -146,24 +144,36 @@ if __name__ == '__main__':
 
     print('Features used', x.columns, x.shape)
 
+    shmu_predictions = x.loc[:, 'future_temp_shmu'].values
+    x = x.values
+    y = y.values
+
     models = []
     if (model_type == 'svr'):
         # larger C = penalize the cost of missclasification a lot
+        '''
         cv = TimeSeriesSplit(n_splits=5)
         parameters = {
-            'C': [0.01, 0.1, 1, 10, 50],
+            'C': [0.01, 0.1, 1, 10],
             'epsilon': [0.05, 0.1]
         }
         s = svm.SVR(kernel='linear')
         models.append(GridSearchCV(s, parameters, cv=cv))
-        # models.append(svm.SVR(C=1, kernel='rbf', epsilon=0.1, gamma=0.05))
-    elif (model_type == 'reg'):
+        '''
+        models.append(svm.SVR(kernel='linear'))
+        # models.append(svm.SVR(C=1, kernel='rbf', epsilon=0.1, gamma=0.005))
+    elif (model_type == 'ols'):
         models.append(lm.LinearRegression(fit_intercept=fit_intercept))
+    elif (model_type == 'poly-lasso'):
+        poly = PolynomialFeatures(degree=2, include_bias=False)
+        x = poly.fit_transform(x)
+        models.append(lm.Lasso(alpha=0.3, copy_X=True, fit_intercept=True,
+                               normalize=False))
     elif (model_type == 'rf'):
         models.append(dt.RandomForestRegressor(n_estimators=50, max_depth=5))
     elif (model_type == 'nn'):
         # smaller alpha = more regularization
-        cv = TimeSeriesSplit(n_splits=5)
+        cv = TimeSeriesSplit(n_splits=4)
         parameters = {
             'hidden_layer_sizes': [
                 [30], [50], [100], [30, 30]
@@ -171,7 +181,7 @@ if __name__ == '__main__':
             'alpha': [1, 0.1, 0.01, 0.001, 0.0001]
         }
         nn = nn.MLPRegressor(activation='relu', solver='lbfgs')
-        models.append(RandomizedSearchCV(nn, parameters, n_iter=5, cv=cv))
+        models.append(RandomizedSearchCV(nn, parameters, n_iter=3, cv=cv))
     elif (model_type == 'kn'):
         models.append(ng.KNeighborsRegressor())
     elif (model_type == 'ens'):
@@ -181,13 +191,15 @@ if __name__ == '__main__':
         models.append(lm.RidgeCV(alphas=[0.1, 0.3, 1.0, 3, 10.0],
                                  fit_intercept=True, normalize=False))
     elif (model_type == 'lasso'):
+        # higher alpha = more regularization
         models.append(lm.Lasso(alpha=0.1, copy_X=True, fit_intercept=True,
-                               max_iter=50, normalize=False))
+                               normalize=False))
     elif (model_type == 'lasso-cv'):
         cv = TimeSeriesSplit(n_splits=5)
         models.append(lm.LassoCV(fit_intercept=True,
-                                 normalize=False, cv=cv))
+                                 normalize=True, cv=cv))
     elif (model_type == 'ridge'):
+        # higher alpha = more regularization
         models.append(lm.Ridge(alpha=2, copy_X=True, fit_intercept=True,
                                normalize=False))
     elif (model_type == 'ridge-cv'):
@@ -196,15 +208,14 @@ if __name__ == '__main__':
     elif (model_type == 'elastic-cv'):
         cv = TimeSeriesSplit(n_splits=5)
         models.append(lm.ElasticNetCV(cv=cv))
-    elif (model_type == 'gauss'):
-        kernel = ConstantKernel() + Matern(length_scale=2, nu=3 / 2) + \
-            WhiteKernel(noise_level=1)
-        models.append(gp.GaussianProcessRegressor(kernel=kernel))
+    elif (model_type == 'bayes-ridge'):
+        models.append(lm.BayesianRidge())
     elif (model_type == 'gradient-boost'):
         models.append(dt.GradientBoostingRegressor(
-            n_estimators=300, learning_rate=0.05, max_depth=3))
+            n_estimators=300, learning_rate=0.05, max_depth=5))
 
-    stats = predict(data, x, y, weight, models, length, step, diff,
+    stats = predict(data, x, y, weight, models, shmu_predictions,
+                    length, step, diff,
                     norm, average_models, autocorrect, verbose,
                     skip_predictions)
 
@@ -222,6 +233,7 @@ if __name__ == '__main__':
     cum_mse = stats['cum_mse']
     cum_mae = stats['cum_mae']
     cum_bias = stats['cum_bias']
+    model_hour_errors = stats['model_hour_errors']
 
     print('Predictions count', predictions_count)
 
@@ -233,5 +245,6 @@ if __name__ == '__main__':
                      predicted_values=stats['predicted_all'],
                      shmu_predictions=data.future_temp_shmu)
 
-    save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae)
+    save_errors(predicted_errors, shmu_errors,
+                cum_mse, cum_mae, model_hour_errors)
     save_bias(cum_bias)

@@ -20,9 +20,10 @@ weights will be used.''', type=float)
                         dest='no_intercept',
                         help='If set will not use bias term.')
     parser.add_argument('--model', action='store', dest='model',
-                        default='reg',
-                        choices=['reg', 'svr', 'rf', 'kn', 'nn', 'ridge',
-                                 'gauss', 'lasso-cv', 'elastic-cv',
+                        default='ols',
+                        choices=['ols', 'svr', 'rf', 'kn', 'nn', 'ridge',
+                                 'lasso-cv', 'elastic-cv',
+                                 'bayes-ridge', 'poly-lasso',
                                  'ridge-cv', 'ens', 'lasso', 'gradient-boost'],
                         help="Model to use for predictions:\n")
     parser.add_argument('--shmu-error', action='store',
