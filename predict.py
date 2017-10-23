@@ -23,6 +23,8 @@ from utils import get_bias, save_predictions, save_bias
 from utils import save_errors, predict
 from parsers import get_predict_parser
 
+# The pandas warning is statsmodel issue
+
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
 

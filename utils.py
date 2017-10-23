@@ -21,30 +21,27 @@ season_improvements = {
 }
 
 
-def get_train_data(x_diff, y_orig, y_diff, i, start, interval, neighbors=True):
-    x_train, y_train_orig, y_train = [None for x in range(3)]
-    if (neighbors):
-        x_train, y_train_orig, y_train = [], [], []
-        for j in range(i - start, i, interval):
-            x_train.append(x_diff[j - 1, :])
-            x_train.append(x_diff[j, :])
-            x_train.append(x_diff[j + 1, :])
+def get_train_data(x, y, i, start, interval, diff=False):
+    x_train = x[i - start:i:interval, :]
+    y_train = y[i - start:i:interval]
+    y_train_orig = y[i - start:i:interval]
 
-            y_train_orig.append(y_orig[j - 1])
-            y_train_orig.append(y_orig[j])
-            y_train_orig.append(y_orig[j + 1])
+    if (diff):
+        x_train = np.diff(x_train, axis=0)
+        y_train = np.diff(y_train)
 
-            y_train.append(y_diff[j - 1])
-            y_train.append(y_diff[j])
-            y_train.append(y_diff[j + 1])
-        x_train = np.array(x_train)
-        y_train_orig = np.array(y_train_orig)
-        y_train = np.array(y_train)
-    else:
-        x_train = x_diff[i - start:i:interval, :]
-        y_train_orig = y_orig[i - start:i:interval]
-        y_train = y_diff[i - start:i:interval]
-    return x_train, y_train_orig, y_train
+    return x_train, y_train, y_train_orig
+
+
+def get_test_data(x, y, i, interval, diff=False):
+    x_test = x[i, :]
+    y_test = y[i]
+
+    if (diff):
+        # +1 is used to include current item
+        x_test = np.squeeze(np.diff(x[i - interval: i + 1: interval, :]))
+        y_test = np.squeeze(np.diff(y[i - interval: i + 1: interval]))
+    return x_test, y_test
 
 
 def save_hour_value(all_results, seasonal_results, value, period, month):
@@ -397,18 +394,7 @@ def predict(data, x, y, weight, models, shmu_predictions, window_len,
     `window_len * interval` hours earlier.
     '''
 
-    x_orig, y_orig, x_diff, y_diff = [None for i in range(4)]
-    if (diff):
-        pass
-        # x_orig = x.iloc[interval:]
-        # y_orig = y.iloc[interval:]
-        # x_diff = x.diff(periods=interval).iloc[interval:]
-        # y_diff = y.diff(periods=interval).iloc[interval:]
-    else:
-        x_orig, y_orig, x_diff, y_diff = [
-            x.copy(), y.copy(), x.copy(), y.copy()]
-
-    data_len = x_diff.shape[0]
+    data_len = x.shape[0]
     predictions_made = 0
     iterations = 0
     mae_predict = 0
@@ -441,7 +427,7 @@ def predict(data, x, y, weight, models, shmu_predictions, window_len,
             model_errors, interval, window_len)
 
         x_train, y_train, y_train_orig = get_train_data(
-            x_diff, y_orig, y_diff, i, start, interval, neighbors=False)
+            x, y, i, start, interval, diff=diff)
 
         if (autocorrect and autocorrect_ready):
             autocorrect_col = autocorrect_func(model_errors, i,
@@ -453,9 +439,7 @@ def predict(data, x, y, weight, models, shmu_predictions, window_len,
             mean = x_train.mean()
             x_train = (x_train - mean) / std
 
-        x_test = x_diff[i, :]
-        x_test_orig = x_orig[i, :]
-        y_test = y_orig[i]
+        x_test, y_test = get_test_data(x, y, i, interval, diff=diff)
 
         if (autocorrect and autocorrect_ready):
             x_test['autocorrect'] = autocorrect_func(
