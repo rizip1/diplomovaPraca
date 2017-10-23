@@ -119,15 +119,10 @@ if __name__ == '__main__':
         fieldsToDrop.append('future_temp')
         fieldsToDrop.append('validity_date')
         fieldsToDrop.append('reference_date')
-
         fieldsToDrop.append('p_time_rainfall_last_hour')
-
         fieldsToDrop.append('p_time_humidity')
-
         fieldsToDrop.append('p_time_pressure')
-
         fieldsToDrop.append('p_time_wind_speed')
-
         fieldsToDrop.append('p_time_wind_direction')
 
         # uncomment for testing on smaller intervals
