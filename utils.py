@@ -24,13 +24,12 @@ season_improvements = {
 def get_train_data(x, y, i, start, interval, diff=False):
     x_train = x[i - start:i:interval, :]
     y_train = y[i - start:i:interval]
-    y_train_orig = y[i - start:i:interval]
 
     if (diff):
         x_train = np.diff(x_train, axis=0)
-        y_train = np.diff(y_train)
+        y_train = y_train[1:]
 
-    return x_train, y_train, y_train_orig
+    return x_train, y_train
 
 
 def get_test_data(x, y, i, interval, diff=False):
@@ -39,8 +38,9 @@ def get_test_data(x, y, i, interval, diff=False):
 
     if (diff):
         # +1 is used to include current item
-        x_test = np.squeeze(np.diff(x[i - interval: i + 1: interval, :]))
-        y_test = np.squeeze(np.diff(y[i - interval: i + 1: interval]))
+        x_test = np.squeeze(
+            np.diff(x[i - interval: i + 1: interval, :], axis=0))
+
     return x_test, y_test
 
 
@@ -426,7 +426,7 @@ def predict(data, x, y, weight, models, shmu_predictions, window_len,
         autocorrect_ready = can_use_autocorrect(
             model_errors, interval, window_len)
 
-        x_train, y_train, y_train_orig = get_train_data(
+        x_train, y_train = get_train_data(
             x, y, i, start, interval, diff=diff)
 
         if (autocorrect and autocorrect_ready):
@@ -469,9 +469,6 @@ def predict(data, x, y, weight, models, shmu_predictions, window_len,
         else:
             y_predicted = get_avg_prediction(models, x_train, y_train,
                                              x_test.reshape(1, -1), weights)
-
-        if (diff):
-            y_predicted += y_train_orig[-1]
 
         model_error = (y_predicted - y_test)[0]
         model_errors = np.append(model_errors, model_error)
