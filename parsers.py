@@ -91,6 +91,9 @@ time when prediction was made and arg hours before. Options are
     parser.add_argument('--use-cache', action='store_true', dest='use_cache',
                         default=False,
                         help='Used cached data')
+    parser.add_argument('--error-stats', action='store_true',
+                        dest='error_stats', default=False,
+                        help='Create error stats')
     parser.add_argument('--skip-predictions', action='store',
                         dest='skip_predictions', default=0,
                         help='''Number of predictions to do not count to final

@@ -196,7 +196,7 @@ def save_autocorrect_state(model_errors, x_train, x_test):
 def plot_normality(errors):
     # based on D’Agostino and Pearson’s test that combines
     # skew and kurtosis to produce an omnibus test of normality.
-    print('Normality p-value: ', normaltest(errors).pvalue)
+    print('\nErrors normality p-value: ', normaltest(errors).pvalue)
 
     mu, std = norm.fit(errors)
     plt.figure(figsize=(12, 6))
@@ -338,6 +338,7 @@ def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae,
     plt.savefig('other/errors/errors.png')
     plt.close()
 
+    print('\nSaving error plots ...')
     for i in range(0, len(predicted_errors), max_count):
         end = min(i + max_count, len(predicted_errors))
         plt.figure(figsize=(12, 6))
@@ -352,17 +353,12 @@ def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae,
         plt.savefig('other/errors/errors_{}.png'.format(i))
         plt.close()
 
+    print('\n Durbin watson stats:')
     for i in range(24):
         print(durbin_watson(model_hour_errors[i]))
         plot_acf(model_hour_errors[i], lags=60, alpha=0.01)
         plt.savefig('other/errors/errors_autocorr_{}.png'.format(i))
-
-    # autocorrelation - correlation with itself in previous times
-    # correlation is shown on y-axis
-
-    # 'blue-clouds' shows confidence interval
-    # when outside those there is correlation with more that 95%
-    # qqplot(predicted_errors)  # correlogram/autocorrelation plot
+        plt.close()
 
     plt.figure(figsize=(12, 6))
     ax = plt.subplot(111)

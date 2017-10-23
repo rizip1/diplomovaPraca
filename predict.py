@@ -48,6 +48,7 @@ if __name__ == '__main__':
     moments = args.moments
     min_max = args.min_max
     use_cache = args.use_cache
+    error_stats = args.error_stats
     skip_predictions = int(args.skip_predictions)
     shmu_error_moment = args.shmu_error_moment
 
@@ -221,13 +222,13 @@ if __name__ == '__main__':
                     norm, average_models, autocorrect, verbose,
                     skip_predictions)
 
-    print('BIAS (temperature) in data {0:.2f}'.format(get_bias(
+    print('SHMU bias in whole data {0:.2f}'.format(get_bias(
         real=data.future_temp, predicted=data.future_temp_shmu)))
 
-    print('MAE SHMU {0:.2f}'.format(stats['mae_shmu']))
-    print('MAE PREDICT {0:.4f}'.format(stats['mae_predict']))
-    print('MSE SHMU {0:.2f}'.format(stats['mse_shmu']))
-    print('MSE PREDICT {0:.4f}'.format(stats['mse_predict']))
+    print('MAE shmu {0:.2f}'.format(stats['mae_shmu']))
+    print('MAE model {0:.4f}'.format(stats['mae_predict']))
+    print('MSE shmu {0:.2f}'.format(stats['mse_shmu']))
+    print('MSE model {0:.4f}'.format(stats['mse_predict']))
     print('Model bias {0:.4f}'.format(stats['model_bias']))
 
     predicted = stats['predicted_all']
@@ -247,6 +248,7 @@ if __name__ == '__main__':
                      predicted_values=stats['predicted_all'],
                      shmu_predictions=data.future_temp_shmu)
 
-    save_errors(predicted_errors, shmu_errors,
-                cum_mse, cum_mae, model_hour_errors)
+    if (error_stats):
+        save_errors(predicted_errors, shmu_errors,
+                    cum_mse, cum_mae, model_hour_errors)
     save_bias(cum_bias)
