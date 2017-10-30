@@ -47,6 +47,9 @@ def get_parser():
     parser.add_argument('--stable-weather', action='store_true', default=False,
                         dest='stable_weather',
                         help='Will plot table weather')
+    parser.add_argument('--compare-improvements', action='store_true',
+                        default=False, dest='compare_improvements',
+                        help='Will compare improvements')
     return parser
 
 
@@ -240,6 +243,7 @@ if __name__ == '__main__':
     create_missing_data = args.data_missing
     create_shmu_errors = args.shmu_errors
     stable_weather = args.stable_weather
+    compare_improvements = args.compare_improvements
 
     stations = get_stations()
 
@@ -348,6 +352,39 @@ if __name__ == '__main__':
         data = pd.read_csv('data/data_11816.csv', delimiter=';')
         data = data.drop(fieldsToDrop, axis=1)
         plot_features(data)
+
+    if (compare_improvements):
+        seasons = ['spring', 'summer', 'autumn', 'winter']
+        x_m = [(i + 1) for i in range(12)]
+        x_a = [(i + 13) for i in range(12)]
+
+        for index, s in enumerate(seasons):
+            base = pd.read_csv('improvement/compare/{}_base.csv'.format(s))
+            alt = pd.read_csv('improvement/compare/{}_alt.csv'.format(s))
+
+            plt.figure(figsize=(12, 6))
+            plt.plot(x_m, base.morning, 'b', label='original')
+            plt.plot(x_m, alt.morning, 'g', label='alternative')
+            plt.title('Morning {}'.format(s))
+            plt.ylabel('Improvement')
+            plt.xlabel('Hour')
+            plt.xticks(x_m)
+            plt.grid()
+            plt.legend(bbox_to_anchor=(0.97, 1.015), loc=2)
+            plt.savefig('improvement/compared/morning_{}.png'.format(s))
+            plt.close()
+
+            plt.figure(figsize=(12, 6))
+            plt.plot(x_a, base.afternoon, 'b', label='original')
+            plt.plot(x_a, alt.afternoon, 'g', label='alternative')
+            plt.title('Afternoon {}'.format(s))
+            plt.ylabel('Improvement')
+            plt.xlabel('Hour')
+            plt.xticks(x_a)
+            plt.grid()
+            plt.legend(bbox_to_anchor=(0.97, 1.015), loc=2)
+            plt.savefig('improvement/compared/afternoon_{}.png'.format(s))
+            plt.close()
 
     if (create_shmu_errors):
         data = pd.read_csv('data/data_11816.csv', delimiter=';')
