@@ -180,6 +180,12 @@ def save_improvement_to_file():
             f.write('Total records: {}\n'.format(
                 total_draws + total_improvements + total_worse))
 
+            frame = pd.DataFrame()
+            frame['morning'] = pd.Series(morning)
+            frame['afternoon'] = pd.Series(afternoon)
+            frame.to_csv(
+                'improvement/{}_improvemets.csv'.format(season), index=False)
+
 
 def save_autocorrect_state(model_errors, x_train, x_test):
     '''
