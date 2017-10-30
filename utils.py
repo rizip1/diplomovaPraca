@@ -45,15 +45,16 @@ def get_test_data(x, y, i, interval, diff=False):
 
 
 def save_hour_value(all_results, seasonal_results, value, period, month):
-    all_results[period].append(value)
+    p = period - 1
+    all_results[p].append(value)
     if (month in [1, 2, 3]):
-        seasonal_results['winter'][period].append(value)
+        seasonal_results['winter'][p].append(value)
     elif (month in [4, 5, 6]):
-        seasonal_results['spring'][period].append(value)
+        seasonal_results['spring'][p].append(value)
     elif (month in [7, 8, 9]):
-        seasonal_results['summer'][period].append(value)
+        seasonal_results['summer'][p].append(value)
     elif (month in [10, 11, 12]):
-        seasonal_results['autumn'][period].append(value)
+        seasonal_results['autumn'][p].append(value)
 
 
 def plot_hour_results(all_results, seasonal_results, title, file_name):
@@ -219,7 +220,10 @@ def parse_hour(date):
     m = re.search(
         r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
         date)
-    return int(m.group(1))
+    hour = int(m.group(1))
+    if (hour == 0):
+        hour = 24
+    return hour
 
 
 def parse_month(date):
@@ -283,10 +287,6 @@ def get_avg_prediction(models, x_train, y_train, x_test, weights):
             m.fit(x_train, y_train)
         predicted += m.predict(x_test)
     return predicted / len(models)
-
-
-def get_bias(real, predicted):
-    return np.mean(real - predicted)
 
 
 def save_predictions(real_values, predicted_values, shmu_predictions):
@@ -405,6 +405,7 @@ def predict(data, x, y, weight, models, shmu_predictions, window_len,
     cum_mse = []
     cum_mae = []
     cum_bias = []
+    shmu_bias = 0
     autocorrect_func = get_autocorrect_func(autocorrect)
     model_hour_errors = [[] for i in range(24)]
 
@@ -469,7 +470,7 @@ def predict(data, x, y, weight, models, shmu_predictions, window_len,
         model_error = (y_predicted - y_test)[0]
         model_errors = np.append(model_errors, model_error)
         model_predictions = np.append(model_predictions, y_predicted)
-        model_hour_errors[val_date_hour].append(model_error)
+        model_hour_errors[val_date_hour - 1].append(model_error)
 
         if (autocorrect and not autocorrect_ready):
             continue
@@ -495,6 +496,7 @@ def predict(data, x, y, weight, models, shmu_predictions, window_len,
         mae_predict += np.sum(abs(y_test - y_predicted))
         mse_predict += np.sum((y_test - y_predicted) ** 2)
         model_bias += (y_predicted - y_test)[0]
+        shmu_bias += (shmu_value - y_test)
 
         cum_mse.append(mse_predict / predictions_made)
         cum_mae.append(mae_predict / predictions_made)
@@ -516,6 +518,7 @@ def predict(data, x, y, weight, models, shmu_predictions, window_len,
         'predicted_all': np.array(predicted_all),
         'predictions_count': predictions_made,
         'model_bias': model_bias / predictions_made,
+        'shmu_bias': shmu_bias / predictions_made,
         'cum_mse': cum_mse[200:],  # removing first values improves readability
         'cum_mae': cum_mae[200:],
         'cum_bias': cum_bias[200:],

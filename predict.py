@@ -19,7 +19,7 @@ from feature_utils import add_shmu_error
 from feature_utils import add_min_max
 from feature_utils import add_morning_and_afternoon_temp
 
-from utils import get_bias, save_predictions, save_bias
+from utils import save_predictions, save_bias
 from utils import save_errors, predict
 from parsers import get_predict_parser
 
@@ -83,13 +83,11 @@ if __name__ == '__main__':
         feature_lags = int(splitted[0])
         feature_lag_by = int(splitted[1])
 
-    data = None
-    x = None
-    y = None
+    data, x, y = [None, None, None]
 
     if (not use_cache):
         data = pd.read_csv(args.data_file, delimiter=';')
-        print('Preparing data')
+        print('Transforming data')
 
         data = add_morning_and_afternoon_temp(data, afternoon_morning)
 
@@ -168,7 +166,7 @@ if __name__ == '__main__':
         models.append(lm.Lasso(alpha=0.3, copy_X=True, fit_intercept=True,
                                normalize=False))
     elif (model_type == 'rf'):
-        models.append(dt.RandomForestRegressor(n_estimators=50, max_depth=5))
+        models.append(dt.RandomForestRegressor(n_estimators=300, max_depth=5))
     elif (model_type == 'nn'):
         # smaller alpha = more regularization
         cv = TimeSeriesSplit(n_splits=4)
@@ -217,9 +215,7 @@ if __name__ == '__main__':
                     norm, average_models, autocorrect, verbose,
                     skip_predictions)
 
-    print('SHMU bias in whole data {0:.2f}'.format(get_bias(
-        real=data.future_temp, predicted=data.future_temp_shmu)))
-
+    print('SHMU bias {0:.2f}'.format(stats['shmu_bias']))
     print('MAE shmu {0:.2f}'.format(stats['mae_shmu']))
     print('MAE model {0:.4f}'.format(stats['mae_predict']))
     print('MSE shmu {0:.2f}'.format(stats['mse_shmu']))
@@ -239,6 +235,7 @@ if __name__ == '__main__':
     shmu_errors = data.future_temp_shmu[-predictions_count:] - \
         data.future_temp[-predictions_count:]
 
+    save_bias(cum_bias)
     save_predictions(real_values=data.future_temp,
                      predicted_values=stats['predicted_all'],
                      shmu_predictions=data.future_temp_shmu)
@@ -246,4 +243,3 @@ if __name__ == '__main__':
     if (error_stats):
         save_errors(predicted_errors, shmu_errors,
                     cum_mse, cum_mae, model_hour_errors)
-    save_bias(cum_bias)
