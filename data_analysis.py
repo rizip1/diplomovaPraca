@@ -160,16 +160,20 @@ def save_invalid_data_to_plots(folder, colors, invalid_rows_all):
         'current_humidity': 'Humidity',
         'future_temp_shmu': 'SHMU temperature',
     }
+    label_order = ['current_pressure', 'current_wind_speed',
+                   'current_wind_direction', 'current_rainfall_last_hour',
+                   'current_temp', 'current_humidity', 'future_temp_shmu']
     for station, i_data in invalid_rows_all.items():
         print('Saving plot with missing data for station {}...'
               .format(station))
         fig = plt.figure(figsize=(10, 6))
         ax = plt.subplot(111)
         i = 0
-        for label, i_data in i_data.items():
+        for label in label_order:
             x = []
             y = []
-            for pos, value in enumerate(i_data):
+            inv_data = i_data[label]
+            for pos, value in enumerate(inv_data):
                 if (value != 0):
                     x.append(pos)
                     y.append(value)
@@ -302,7 +306,7 @@ if __name__ == '__main__':
         observations = {}
         for s in stations:
             print('Processing invalid data for station {}'.format(s))
-            data = pd.read_csv('data/data_{}.csv'.format(s), delimiter=';')
+            data = pd.read_csv('data_tmp/data_{}.csv'.format(s), delimiter=';')
             data = data.drop(fieldsToDrop, axis=1)
             observations[s] = data.shape[0]
             invalid_rows, invalid_rows_counts = get_invalid_rows(data)
