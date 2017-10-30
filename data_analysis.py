@@ -74,7 +74,7 @@ def shift_invalid_values(x, mean, column):
     return x
 
 
-def save_invalid_data_to_csv(filename, invalid_rows_counts_all):
+def save_invalid_data_to_csv(filename, invalid_rows_counts_all, observations):
     with open('{}.csv'.format(filename), 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=';',
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
@@ -83,11 +83,12 @@ def save_invalid_data_to_csv(filename, invalid_rows_counts_all):
         for key, data_record in invalid_rows_sorted:
             if (not header):
                 column_names = sorted(list(data_record.keys()))
-                writer.writerow(['station'] + column_names)
+                writer.writerow(['station', 'n_observations'] + column_names)
                 header = True
 
             row = []
             row.append(key)
+            row.append(observations[key])
             for key in sorted(list(data_record.keys())):
                 row.append(data_record[key])
             writer.writerow(row)
@@ -150,6 +151,15 @@ def create_correlation_matrix(data, out_file):
 def save_invalid_data_to_plots(folder, colors, invalid_rows_all):
     shutil.rmtree(folder, ignore_errors=True)
     os.mkdir(folder)
+    label_mapping = {
+        'current_pressure': 'Pressure',
+        'current_wind_speed': 'Wind speed',
+        'current_wind_direction': 'Wind direction',
+        'current_rainfall_last_hour': 'Rainfall',
+        'current_temp': 'Temperature',
+        'current_humidity': 'Humidity',
+        'future_temp_shmu': 'SHMU temperature',
+    }
     for station, i_data in invalid_rows_all.items():
         print('Saving plot with missing data for station {}...'
               .format(station))
@@ -164,16 +174,16 @@ def save_invalid_data_to_plots(folder, colors, invalid_rows_all):
                     x.append(pos)
                     y.append(value)
 
-            plt.plot(x, y, 'o', color=colors[i], label=label)
+            plt.plot(x, y, 'o', color=colors[i], label=label_mapping[label])
             i += 1
 
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-
         plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
         plt.title('Missing data for station {}'.format(station))
         plt.ylabel('Features')
         plt.xlabel('Samples')
+        plt.yticks([f for f in range(1, 8)])
         plt.savefig('missing_data/{}.png'.format(station))
         plt.close(fig)
 
@@ -289,17 +299,20 @@ if __name__ == '__main__':
     if (create_invalid):
         invalid_rows_all = {}
         invalid_rows_counts_all = {}
+        observations = {}
         for s in stations:
             print('Processing invalid data for station {}'.format(s))
             data = pd.read_csv('data/data_{}.csv'.format(s), delimiter=';')
             data = data.drop(fieldsToDrop, axis=1)
+            observations[s] = data.shape[0]
             invalid_rows, invalid_rows_counts = get_invalid_rows(data)
             invalid_rows_all[s] = invalid_rows
             invalid_rows_counts_all[s] = invalid_rows_counts
 
         save_invalid_data_to_csv(
             filename='invalid_rows',
-            invalid_rows_counts_all=invalid_rows_counts_all)
+            invalid_rows_counts_all=invalid_rows_counts_all,
+            observations=observations)
 
         colors = ['r', 'g', 'b', 'k', 'y', 'm', 'c', '#8080A0']
         save_invalid_data_to_plots(folder='./missing_data/', colors=colors,
