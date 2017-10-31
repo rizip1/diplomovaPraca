@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import argparse
 import re
+from datetime import datetime
 
 from utils import parse_month, parse_hour
 from utils import save_hour_value, plot_hour_results
@@ -272,24 +273,34 @@ if __name__ == '__main__':
                 station_id=s, out_file='data/data_{}.csv'.format(s))
 
     if (create_missing_data):
+        results = {}
         for s in stations:
-            prev_hour = None
             print('Processing station {}...'.format(s))
+            total_missing_data = 0
 
-            # TODO this do not check when data are missing for
-            # whole day or month
             s_data = pd.read_csv('data/data_{}.csv'.format(s), delimiter=';')
-            for j in range(0, s_data.shape[0]):
-                ref_date = s_data.loc[j, 'validity_date']
-                m = re.search(
-                    r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
-                    ref_date)
-                hour = int(m.group(1))
-                if (prev_hour is not None):
-                    if (hour - prev_hour != 1):
-                        if (not (hour == 0 and prev_hour == 23)):
-                            print('missing data at pos = ', j, hour)
-                prev_hour = hour
+            for j in range(0, s_data.shape[0] - 1):
+                ref_date1 = s_data.loc[j, 'validity_date']
+                ref_date2 = s_data.loc[j + 1, 'validity_date']
+                reg = r'^([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}):[0-9]{2}:[0-9]{2}$'
+                m1 = re.search(reg, ref_date1)
+                m2 = re.search(reg, ref_date2)
+                d1 = datetime.strptime(m1.group(1), '%Y-%m-%d %H')
+                d2 = datetime.strptime(m2.group(1), '%Y-%m-%d %H')
+                delta = d2 - d1
+                if (delta.seconds != 3600):
+                    miss_c = 0
+                    if (delta.days > 0):
+                        miss_c += delta.days * 24
+                    if (delta.seconds > 3600):
+                        miss_c += (delta.seconds // 3600) - 1
+                    total_missing_data += miss_c
+                    print('Missing data at pos {} for {} observations'.format(
+                        j, miss_c))
+                results[s] = total_missing_data
+
+        for s in stations:
+            print('{}: Total missing data count = {}'.format(s, results[s]))
 
     complete_station = 11894  # however no records about rainfall
     complete_station_data = pd.read_csv(
