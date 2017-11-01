@@ -26,12 +26,14 @@ def get_parser():
     parser.add_argument('--data', action='store_true', default=False,
                         dest='data',
                         help='Will recreate data files')
-    parser.add_argument('--data-missing', action='store_true', default=False,
-                        dest='data_missing',
-                        help='Will check missing files')
-    parser.add_argument('--invalid', action='store_true', default=False,
+    parser.add_argument('--data-missing', action='store', default=False,
+                        dest='data_missing_path',
+                        help='''Will check missing records. Argument is name
+of the data folder where to find data files.''')
+    parser.add_argument('--invalid', action='store', default=False,
                         dest='invalid',
-                        help='Will recreate invalid data')
+                        help='''Will recreate invalid data. Argument
+is input_folder-output_folder''')
     parser.add_argument('--important', action='store_true', default=False,
                         dest='important',
                         help='Will recreate most important features')
@@ -154,7 +156,7 @@ def create_correlation_matrix(data, out_file):
     plt.savefig('{}/{}.png'.format('other', out_file))
 
 
-def save_invalid_data_to_plots(folder, colors, invalid_rows_all):
+def save_invalid_data_to_plots(folder, colors, invalid_rows_all, output):
     shutil.rmtree(folder, ignore_errors=True)
     os.mkdir(folder)
     label_mapping = {
@@ -190,11 +192,11 @@ def save_invalid_data_to_plots(folder, colors, invalid_rows_all):
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
         plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
-        plt.title('Missing data for station {}'.format(station))
+        plt.title('Invalid data for station {}'.format(station))
         plt.ylabel('Features')
         plt.xlabel('Samples')
         plt.yticks([f for f in range(1, 8)])
-        plt.savefig('missing_data/{}.png'.format(station))
+        plt.savefig('{}/{}.png'.format(output, station))
         plt.close(fig)
 
 
@@ -256,11 +258,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
     create_data = args.data
     create_invalid = args.invalid
+    invalid_in, invalid_out = create_invalid.split('-')
     create_important = args.important
     create_hists = args.hists
     create_corr = args.corr
     create_features = args.features
-    create_missing_data = args.data_missing
+    data_missing_path = args.data_missing_path
     create_shmu_errors = args.shmu_errors
     stable_weather = args.stable_weather
     compare_improvements = args.compare_improvements
@@ -279,6 +282,8 @@ if __name__ == '__main__':
                 station_id=s, out_file='data/data_{}.csv'.format(s))
 
     if (replace_missing):
+        hour_regex = r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$'
+        day_regex = r'^([0-9]{4}-[0-9]{2}-[0-9]{2}) [0-9]{2}:[0-9]{2}:[0-9]{2}$'
         for s in stations:
             print('Processing station {} ...'.format(s))
             s_data = pd.read_csv(
@@ -316,14 +321,10 @@ if __name__ == '__main__':
                         new_val_date = str(datetime.strptime(
                             val_date1, date_format) + timedelta(hours=m))
 
-                        match = re.search(
-                            r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
-                            new_val_date)
+                        match = re.search(hour_regex, new_val_date)
                         hour = int(match.group(1))
                         new_ref_date = None
-                        match = re.search(
-                            r'^([0-9]{4}-[0-9]{2}-[0-9]{2}) [0-9]{2}:[0-9]{2}:[0-9]{2}$',
-                            new_val_date)
+                        match = re.search(day_regex, new_val_date)
                         ref_date_base = match.group(1)
                         if (hour >= 13 or hour == 0):
                             new_ref_date = '{} 12:00:00'.format(ref_date_base)
@@ -345,34 +346,48 @@ if __name__ == '__main__':
                             for c in columns:
                                 # if one value is -999 we have to set
                                 # other to -999 also so mean is again -999
-                                if (prev_r[c] == missing_v or next_r[c] == missing_v):
+                                if (prev_r[c] == missing_v or
+                                        next_r[c] == missing_v):
                                     prev_r[c] = missing_v
                                     next_r[c] = missing_v
                                 # take average of t-24 and t+24
-                                if (c != 'validity_date' and c != 'reference_date'):
+                                if (c != 'validity_date' and
+                                        c != 'reference_date'):
                                     new_record[c] = (prev_r[c] + next_r[c]) / 2
                         else:
                             # just add row of all values set to -999
                             for c in columns:
-                                if (c != 'validity_date' and c != 'reference_date'):
+                                if (c != 'validity_date' and
+                                        c != 'reference_date'):
                                     new_record[c] = -999
                         rows.append(new_record.values)
 
             # last record that we have
             rows.append(s_data.loc[s_data.shape[0] - 1].values)
 
+            # when all missing data are replace, can replace invalid values
+            for i in range(len(rows)):
+                # skip reference_date and validity date
+                for j in range(2, len(rows[i])):
+                    if (rows[i][j] == missing_v and i >= 24 and
+                            i + 24 < len(rows)):
+                        if (not (rows[i - 24][j] == missing_v or
+                                 rows[i + 24][j] == missing_v)):
+                            rows[i][j] = (rows[i - 24][j] +
+                                          rows[i + 24][j]) / 2
+
             new_data = pd.DataFrame(np.array(rows), columns=columns)
             new_data.to_csv('new_data/data_{}.csv'.format(s),
                             index=False, sep=';')
 
-    if (create_missing_data):
+    if (data_missing_path):
         results = {}
         for s in stations:
             print('Processing station {}...'.format(s))
             total_missing_data = 0
             date_format = '%Y-%m-%d %H:%M:%S'
             s_data = pd.read_csv(
-                'data/data_{}.csv'.format(s), delimiter=';')
+                '{}/data_{}.csv'.format(data_missing_path, s), delimiter=';')
             for j in range(0, s_data.shape[0] - 1):
                 val_date1 = s_data.loc[j, 'validity_date']
                 val_date2 = s_data.loc[j + 1, 'validity_date']
@@ -408,7 +423,8 @@ if __name__ == '__main__':
         observations = {}
         for s in stations:
             print('Processing invalid data for station {}'.format(s))
-            data = pd.read_csv('data_tmp/data_{}.csv'.format(s), delimiter=';')
+            data = pd.read_csv(
+                '{}/data_{}.csv'.format(invalid_in, s), delimiter=';')
             data = data.drop(fieldsToDrop, axis=1)
             observations[s] = data.shape[0]
             invalid_rows, invalid_rows_counts = get_invalid_rows(data)
@@ -421,8 +437,10 @@ if __name__ == '__main__':
             observations=observations)
 
         colors = ['r', 'g', 'b', 'k', 'y', 'm', 'c', '#8080A0']
-        save_invalid_data_to_plots(folder='./missing_data/', colors=colors,
-                                   invalid_rows_all=invalid_rows_all)
+        save_invalid_data_to_plots(folder='./{}/'.format(invalid_out),
+                                   colors=colors,
+                                   invalid_rows_all=invalid_rows_all,
+                                   output=invalid_out)
 
     # Get most important features based on RandomForest training
     if (create_important):
