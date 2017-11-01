@@ -6,13 +6,15 @@ import numpy as np
 import pandas as pd
 import argparse
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from utils import parse_month, parse_hour
 from utils import save_hour_value, plot_hour_results
 
 from db import save_data_for_station, get_stations
 from sklearn.ensemble import ExtraTreesRegressor
+
+pd.options.mode.chained_assignment = None
 
 
 def get_parser():
@@ -51,6 +53,9 @@ def get_parser():
     parser.add_argument('--compare-improvements', action='store_true',
                         default=False, dest='compare_improvements',
                         help='Will compare improvements')
+    parser.add_argument('--replace-missing', action='store_true',
+                        default=False, dest='replace_missing',
+                        help='Will replace missing data')
     return parser
 
 
@@ -259,6 +264,7 @@ if __name__ == '__main__':
     create_shmu_errors = args.shmu_errors
     stable_weather = args.stable_weather
     compare_improvements = args.compare_improvements
+    replace_missing = args.replace_missing
 
     stations = get_stations()
 
@@ -272,23 +278,108 @@ if __name__ == '__main__':
             save_data_for_station(
                 station_id=s, out_file='data/data_{}.csv'.format(s))
 
+    if (replace_missing):
+        for s in stations:
+            print('Processing station {} ...'.format(s))
+            s_data = pd.read_csv(
+                'data/data_{}.csv'.format(s), delimiter=';')
+
+            missing_v = -999
+            sec_hour = 3600
+            columns = s_data.columns
+            start = s_data.loc[0, 'validity_date']
+            end = s_data.loc[s_data.shape[0] - 1, 'validity_date']
+            date_format = '%Y-%m-%d %H:%M:%S'
+
+            date_1 = datetime.strptime(start, date_format)
+            date_2 = datetime.strptime(end, date_format)
+            delta = date_2 - date_1
+            all_data_len = (delta.days * 24) + (delta.seconds // sec_hour)
+
+            rows = []
+            for j in range(s_data.shape[0] - 1):
+                current_row = s_data.loc[j].values
+                rows.append(current_row)
+                ref_date1 = s_data.loc[j, 'reference_date']
+                val_date1 = s_data.loc[j, 'validity_date']
+                val_date2 = s_data.loc[j + 1, 'validity_date']
+                d1 = datetime.strptime(val_date1, date_format)
+                d2 = datetime.strptime(val_date2, date_format)
+                d = d2 - d1
+
+                if (d.seconds != sec_hour or d.days > 0):
+                    miss_c = (d.days * 24) + (d.seconds // sec_hour) - 1
+
+                    for m in range(1, miss_c + 1):
+                        new_record = pd.Series()
+
+                        new_val_date = str(datetime.strptime(
+                            val_date1, date_format) + timedelta(hours=m))
+
+                        match = re.search(
+                            r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
+                            new_val_date)
+                        hour = int(match.group(1))
+                        new_ref_date = None
+                        match = re.search(
+                            r'^([0-9]{4}-[0-9]{2}-[0-9]{2}) [0-9]{2}:[0-9]{2}:[0-9]{2}$',
+                            new_val_date)
+                        ref_date_base = match.group(1)
+                        if (hour >= 13 or hour == 0):
+                            new_ref_date = '{} 12:00:00'.format(ref_date_base)
+                        else:
+                            new_ref_date = '{} 00:00:00'.format(ref_date_base)
+
+                        # order must be preserved
+                        new_record['reference_date'] = new_ref_date
+                        new_record['validity_date'] = new_val_date
+
+                        prev_index = j + m - 24
+                        next_index = j + m + 24 - miss_c
+
+                        # if this is true we can average records
+                        if (prev_index >= 0 and next_index < s_data.shape[0] and miss_c < 24):
+                            prev_r = s_data.loc[prev_index]
+                            next_r = s_data.loc[next_index]
+
+                            for c in columns:
+                                # if one value is -999 we have to set
+                                # other to -999 also so mean is again -999
+                                if (prev_r[c] == missing_v or next_r[c] == missing_v):
+                                    prev_r[c] = missing_v
+                                    next_r[c] = missing_v
+                                # take average of t-24 and t+24
+                                if (c != 'validity_date' and c != 'reference_date'):
+                                    new_record[c] = (prev_r[c] + next_r[c]) / 2
+                        else:
+                            # just add row of all values set to -999
+                            for c in columns:
+                                if (c != 'validity_date' and c != 'reference_date'):
+                                    new_record[c] = -999
+                        rows.append(new_record.values)
+
+            # last record that we have
+            rows.append(s_data.loc[s_data.shape[0] - 1].values)
+
+            new_data = pd.DataFrame(np.array(rows), columns=columns)
+            new_data.to_csv('new_data/data_{}.csv'.format(s),
+                            index=False, sep=';')
+
     if (create_missing_data):
         results = {}
         for s in stations:
             print('Processing station {}...'.format(s))
             total_missing_data = 0
-
-            s_data = pd.read_csv('data/data_{}.csv'.format(s), delimiter=';')
+            date_format = '%Y-%m-%d %H:%M:%S'
+            s_data = pd.read_csv(
+                'data/data_{}.csv'.format(s), delimiter=';')
             for j in range(0, s_data.shape[0] - 1):
-                ref_date1 = s_data.loc[j, 'validity_date']
-                ref_date2 = s_data.loc[j + 1, 'validity_date']
-                reg = r'^([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}):[0-9]{2}:[0-9]{2}$'
-                m1 = re.search(reg, ref_date1)
-                m2 = re.search(reg, ref_date2)
-                d1 = datetime.strptime(m1.group(1), '%Y-%m-%d %H')
-                d2 = datetime.strptime(m2.group(1), '%Y-%m-%d %H')
+                val_date1 = s_data.loc[j, 'validity_date']
+                val_date2 = s_data.loc[j + 1, 'validity_date']
+                d1 = datetime.strptime(val_date1, date_format)
+                d2 = datetime.strptime(val_date2, date_format)
                 delta = d2 - d1
-                if (delta.seconds != 3600):
+                if (delta.seconds != 3600 or delta.days > 0):
                     miss_c = 0
                     if (delta.days > 0):
                         miss_c += delta.days * 24
