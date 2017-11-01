@@ -16,6 +16,25 @@ from sklearn.ensemble import ExtraTreesRegressor
 
 pd.options.mode.chained_assignment = None
 
+label_mapping = {
+    'current_pressure': 'Pressure',
+    'current_wind_speed': 'Wind speed',
+    'current_wind_direction': 'Wind direction',
+    'current_rainfall_last_hour': 'Rainfall',
+    'current_temp': 'Temperature',
+    'current_humidity': 'Humidity',
+    'future_temp_shmu': 'SHMU temperature',
+    'p_time_pressure': 'Pressure',
+    'p_time_wind_speed': 'Wind speed',
+    'p_time_wind_direction': 'Wind direction',
+    'p_time_rainfall_last_hour': 'Rainfall',
+    'p_time_temp': 'Temperature',
+    'p_time_humidity': 'Humidity',
+}
+label_order = ['current_pressure', 'current_wind_speed',
+               'current_wind_direction', 'current_rainfall_last_hour',
+               'current_temp', 'current_humidity', 'future_temp_shmu']
+
 
 def get_parser():
     '''
@@ -151,26 +170,22 @@ def create_correlation_matrix(data, out_file):
     ax = fig.add_subplot(111)
     cax = ax.matshow(corr, interpolation='nearest')
     fig.colorbar(cax)
-    plt.xticks(range(len(corr.columns)), corr.columns, rotation='vertical')
-    plt.yticks(range(len(corr.columns)), corr.columns)
+
+    plt.subplots_adjust(left=0.2, right=0.9, top=0.8, bottom=0.06)
+
+    columns = []
+    for c in corr.columns:
+        columns.append(label_mapping[c])
+
+    plt.xticks(range(len(corr.columns)), columns,
+               rotation='vertical', fontsize=14)
+    plt.yticks(range(len(corr.columns)), columns, fontsize=14)
     plt.savefig('{}/{}.png'.format('other', out_file))
 
 
 def save_invalid_data_to_plots(folder, colors, invalid_rows_all, output):
     shutil.rmtree(folder, ignore_errors=True)
     os.mkdir(folder)
-    label_mapping = {
-        'current_pressure': 'Pressure',
-        'current_wind_speed': 'Wind speed',
-        'current_wind_direction': 'Wind direction',
-        'current_rainfall_last_hour': 'Rainfall',
-        'current_temp': 'Temperature',
-        'current_humidity': 'Humidity',
-        'future_temp_shmu': 'SHMU temperature',
-    }
-    label_order = ['current_pressure', 'current_wind_speed',
-                   'current_wind_direction', 'current_rainfall_last_hour',
-                   'current_temp', 'current_humidity', 'future_temp_shmu']
     for station, i_data in invalid_rows_all.items():
         print('Saving plot with missing data for station {}...'
               .format(station))
@@ -233,7 +248,7 @@ def get_invalid_rows(data):
 
 
 def get_most_important_features(x, y, out_file):
-    forest = ExtraTreesRegressor(n_estimators=250,
+    forest = ExtraTreesRegressor(n_estimators=500,
                                  random_state=0)
     _x = x.values
     _y = y.values
@@ -242,12 +257,20 @@ def get_most_important_features(x, y, out_file):
     importances = forest.feature_importances_
     indices = np.argsort(importances)[::-1]
 
+    std = np.std([tree.feature_importances_ for tree in forest.estimators_],
+                 axis=0)
+
     plt.figure(figsize=(20, 10))
-    plt.title('Feature importances')
+    plt.title('Feature importances', fontsize=20)
     plt.bar(range(x.shape[1]), importances[indices],
-            color='r', align='center')
-    plt.xticks(range(x.shape[1]), np.array(x.columns)[indices],
-               rotation='horizontal')
+            color='r', align='center', yerr=std[indices])
+
+    columns = []
+    for c in x.columns:
+        columns.append(label_mapping[c])
+
+    plt.xticks(range(x.shape[1]), np.array(columns)[indices],
+               rotation='horizontal', fontsize=14)
     plt.xlim([-1, x.shape[1]])
     plt.savefig(out_file)
     plt.close()
@@ -258,7 +281,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     create_data = args.data
     create_invalid = args.invalid
-    invalid_in, invalid_out = create_invalid.split('-')
+    invalid_in, invalid_out = [None, None]
+    if (create_invalid):
+        invalid_in, invalid_out = create_invalid.split('-')
     create_important = args.important
     create_hists = args.hists
     create_corr = args.corr
@@ -408,9 +433,10 @@ if __name__ == '__main__':
         for s in stations:
             print('{}: Total missing data count = {}'.format(s, results[s]))
 
-    complete_station = 11894  # however no records about rainfall
+    complete_station = 11816  # however no records about rainfall
     complete_station_data = pd.read_csv(
         'data/data_{}.csv'.format(complete_station), delimiter=';')
+    complete_station_data = complete_station_data.iloc[0:13000]
     fieldsToDrop = ['future_temp', 'validity_date', 'reference_date',
                     'p_time_temp', 'p_time_wind_speed',
                     'p_time_wind_direction', 'p_time_humidity',
@@ -444,9 +470,12 @@ if __name__ == '__main__':
 
     # Get most important features based on RandomForest training
     if (create_important):
-        shutil.rmtree('./other/', ignore_errors=True)
-        os.mkdir('./other/')
         print('Getting feature importance ...')
+
+        fieldsToDrop = ['future_temp', 'validity_date', 'reference_date',
+                        'current_temp', 'current_wind_speed',
+                        'current_wind_direction', 'current_humidity',
+                        'current_rainfall_last_hour', 'current_pressure']
 
         y = complete_station_data.future_temp
         x = complete_station_data.drop(fieldsToDrop, axis=1)
