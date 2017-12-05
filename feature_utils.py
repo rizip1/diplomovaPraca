@@ -11,10 +11,9 @@ def get_autocorrect_err(model_errors, pos=0, interval=0, window_length=0,
     offset = interval * window_length
 
     if (is_test_set):
-        return model_errors[pos - 24 - offset]
+        return model_errors[-24]
 
-    return model_errors[
-        pos - 24 - (2 * offset): pos - 24 - offset: interval]
+    return model_errors[-(offset + 24): -24: interval]
 
 
 def get_autocorrect_err2(model_errors, pos=0, interval=0, window_length=0,
@@ -148,6 +147,9 @@ def shmu_prediction_time_error(data, lags=1, lag_by=1, exp=0):
     `lags` = 1 means no lag, use only last prediction error
     `lag_by` if `lags` > 1, what should be lag distance
     '''
+    if (lags == 0):
+        return data
+
     data_size = data.shape[0]
 
     # remove rows for which we can not get lagged value

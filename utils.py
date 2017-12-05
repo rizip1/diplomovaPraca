@@ -257,10 +257,8 @@ def contains_missing_data(x_train, y_train, x_test, y_test):
 
 
 def can_use_autocorrect(model_errors, interval, window_len):
-    period = 24
-    error_window = 12
-    return len(model_errors) > (interval * window_len) + (2 * period) + \
-        error_window
+    period = 24 * 2
+    return len(model_errors) > (interval * window_len) + period
 
 
 def get_best_model(models, x_train, y_train, weights):
@@ -378,6 +376,65 @@ def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae,
     plt.xlabel('Samples')
     plt.savefig('other/errors/cum_errors.png')
     plt.close()
+
+
+def print_position_info(pos):
+    if (pos > 0 and (pos % 100) == 0):
+        print('At position {}'.format(pos), end="\r")
+
+
+def predict_new(data, x, y, model, window_length, window_period,
+                weight=None, autocorrect=False):
+    start = window_length * window_period
+    data_len = x.shape[0]
+
+    predicted_all = [[], []]  # 0 - validity_date, 1 - predicted value
+    model_errors = np.array([])
+    autocorrect_func = get_autocorrect_func(autocorrect)
+
+    for i in range(start, data_len):
+        print_position_info(i)
+        val_date = data.validity_date[i]
+
+        x_train, y_train = get_train_data(
+            x, y, i, start, window_period, diff=False)
+        x_test, y_test = get_test_data(x, y, i, window_period, diff=False)
+
+        if (contains_missing_data(
+                x_train, y_train, x_test, np.matrix(y_test))):
+            model_errors = np.array([])
+            continue
+
+        autocorrect_ready = can_use_autocorrect(
+            model_errors, window_period, window_length)
+
+        if (autocorrect and autocorrect_ready):
+            autocorrect_col = autocorrect_func(model_errors, i,
+                                               window_period, window_length)
+            x_train = np.hstack(
+                (x_train, autocorrect_col.reshape(window_length, -1)))
+            x_test = np.hstack(
+                (x_test, autocorrect_func(model_errors, is_test_set=True)))
+
+        weights = get_weights(weight, x_train)
+        if (weights is not None):
+            model.fit(x_train, y_train, sample_weight=weights)
+        else:
+            model.fit(x_train, y_train)
+        y_predicted = model.predict(x_test.reshape(1, -1))
+
+        if (not (autocorrect and not autocorrect_ready)):
+            predicted_all[0].append(val_date)
+            predicted_all[1].append(y_predicted[0])
+
+        model_error = (y_predicted - y_test)[0]
+        model_errors = np.append(model_errors, model_error)
+
+    df = pd.DataFrame.from_items(
+        [('validity_date', predicted_all[0]),
+         ('predicted', predicted_all[1]),
+         ], columns=['validity_date', 'predicted'])
+    return df
 
 
 def predict(data, x, y, weight, models, shmu_predictions, window_len,

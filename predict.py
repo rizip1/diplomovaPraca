@@ -210,19 +210,24 @@ if __name__ == '__main__':
         models.append(dt.GradientBoostingRegressor(
             n_estimators=300, learning_rate=0.05, max_depth=5))
 
+    print(x.shape)
+
     stats = predict(data, x, y, weight, models, shmu_predictions,
                     length, step, diff,
                     norm, average_models, autocorrect, verbose,
                     skip_predictions)
 
     print('SHMU bias {0:.2f}'.format(stats['shmu_bias']))
-    print('MAE shmu {0:.2f}'.format(stats['mae_shmu']))
+    print('MAE shmu {0:.6f}'.format(stats['mae_shmu']))
     print('MAE model {0:.4f}'.format(stats['mae_predict']))
-    print('MSE shmu {0:.2f}'.format(stats['mse_shmu']))
+    print('MSE shmu {0:.6f}'.format(stats['mse_shmu']))
     print('MSE model {0:.4f}'.format(stats['mse_predict']))
     print('Model bias {0:.4f}'.format(stats['model_bias']))
 
     predicted = stats['predicted_all']
+
+    pd.Series(predicted).to_csv('comparison2.csv', index=False)
+
     predictions_count = stats['predictions_count']
     cum_mse = stats['cum_mse']
     cum_mae = stats['cum_mae']
