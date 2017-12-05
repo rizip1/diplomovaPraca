@@ -12,6 +12,7 @@ from feature_utils import get_autocorrect_func
 from scipy.stats.mstats import normaltest
 from scipy.stats import norm
 
+
 improvements = [[] for i in range(24)]
 season_improvements = {
     'spring': [[] for i in range(24)],
@@ -19,6 +20,25 @@ season_improvements = {
     'autumn': [[] for i in range(24)],
     'winter': [[] for i in range(24)],
 }
+
+
+class Colors:
+    BLUE = '\033[94m'
+    ENDC = '\033[0m'
+
+
+def color_print(text, color=Colors.BLUE):
+    print(color + text + Colors.ENDC)
+
+
+def is_stable_weather(data, pos):
+    min_hours = 4
+    max_dist = 1
+
+    for i in range(min_hours):
+        if (abs(data.loc[pos - 24 - i, 'current_temp'] - data.loc[pos - i - 48, 'current_temp']) > max_dist):
+            return False
+    return True
 
 
 def get_train_data(x, y, i, start, interval, diff=False):
@@ -384,7 +404,7 @@ def print_position_info(pos):
 
 
 def predict_new(data, x, y, model, window_length, window_period,
-                weight=None, autocorrect=False):
+                weight=None, autocorrect=False, stable=False):
     start = window_length * window_period
     data_len = x.shape[0]
 
@@ -423,7 +443,8 @@ def predict_new(data, x, y, model, window_length, window_period,
             model.fit(x_train, y_train)
         y_predicted = model.predict(x_test.reshape(1, -1))
 
-        if (not (autocorrect and not autocorrect_ready)):
+        if (not ((stable and not is_stable_weather(data, i)) or
+                 (autocorrect and not autocorrect_ready))):
             predicted_all[0].append(val_date)
             predicted_all[1].append(y_predicted[0])
 

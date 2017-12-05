@@ -22,22 +22,16 @@ from feature_utils import add_shmu_error
 from feature_utils import add_min_max
 from feature_utils import add_morning_and_afternoon_temp
 
-from utils import save_predictions, save_bias
-from utils import save_errors, predict_new
+# from utils import save_predictions, save_bias, save_errors
+from utils import color_print, predict_new
 from parsers import get_predict_parser
 
 from conf import config
 
 # The pandas warning is statsmodel issue
 
+from constants import PREDICTION_PATH, OTHER_PATH
 
-class Colors:
-    BLUE = '\033[94m'
-    ENDC = '\033[0m'
-
-
-def color_print(text, color=Colors.BLUE):
-    print(color + text + Colors.ENDC)
 
 '''
 Basic model
@@ -71,29 +65,34 @@ def merge_predictions(predictions_all, predicted_values):
     return predicted_values
 
 
-def get_final_values(predicted_values):
-    avg = []
-    for i in predicted_values.index:
-        avg.append(np.mean(predicted_values.loc[i, :].values))
-
-    fin = pd.DataFrame()
-    fin['validity_date'] = predictions_all_cleared.validity_date
-    fin['predicted'] = pd.Series(avg)
-    return fin
+def join_date_and_values(predicted_values, validity_date):
+    df = pd.DataFrame()
+    df['validity_date'] = validity_date
+    df['predicted'] = predicted_values
+    return df
 
 
-def show_metrics(data, final_predictions):
+def save_predictions(result):
+    result[['validity_date', 'predicted', 'future_temp']].to_csv(
+        '{}/predictions.csv'.format(PREDICTION_PATH),
+        index=False, sep=';')
+
+
+def merge_with_measured(data, final_predictions):
     cols_to_pick = ['validity_date', 'future_temp', 'future_temp_shmu']
     merged = pd.merge(final_predictions, data.loc[:, cols_to_pick],
                       on='validity_date', how='inner').dropna()
+    return merged
 
-    mae_model = mean_absolute_error(merged.future_temp, merged.predicted)
-    mse_model = mean_squared_error(merged.future_temp, merged.predicted)
+
+def show_metrics(result):
+    mae_model = mean_absolute_error(result.future_temp, result.predicted)
+    mse_model = mean_squared_error(result.future_temp, result.predicted)
 
     mae_shmu = mean_absolute_error(
-        merged.future_temp, merged.future_temp_shmu)
+        result.future_temp, result.future_temp_shmu)
     mse_shmu = mean_squared_error(
-        merged.future_temp, merged.future_temp_shmu)
+        result.future_temp, result.future_temp_shmu)
 
     color_print('Model')
     print('MAE: {0:.4f}'.format(mae_model))
@@ -103,14 +102,17 @@ def show_metrics(data, final_predictions):
     print('MAE: {0:.4f}'.format(mae_shmu))
     print('MSE: {0:.4f}'.format(mse_shmu))
 
-    print('\nNumber of predictions', merged.shape[0])
+    print('\nNumber of predictions', result.shape[0])
 
 
 def setup_env():
     pd.set_option('display.max_columns', None)
 
-    if not os.path.exists('./other'):
-        os.makedirs('./other')
+    if not os.path.exists(OTHER_PATH):
+        os.makedirs(OTHER_PATH)
+
+    if not os.path.exists(PREDICTION_PATH):
+        os.makedirs(PREDICTION_PATH)
 
 
 if __name__ == '__main__':
@@ -130,17 +132,20 @@ if __name__ == '__main__':
                                        window_length=c['window_length'],
                                        window_period=c['window_period'],
                                        weight=c.get('weight'),
-                                       autocorrect=c.get('autocorrect'))
+                                       autocorrect=c.get('autocorrect'),
+                                       stable=config['stable'])
         predictions_all = merge_predictions(predictions_all, predicted_values)
 
     predictions_all_cleared = predictions_all.dropna()
     predicted_values = predictions_all_cleared.loc[
-        :, predictions_all_cleared.columns != 'validity_date']
+        :, predictions_all_cleared.columns != 'validity_date'].mean(axis=1)
 
     print('Merging predictions ...')
-    final_values = get_final_values(predicted_values)
+    final_values = join_date_and_values(predicted_values,
+                                        predictions_all_cleared.validity_date)
 
     # TODO stable weather detection
+    # TODO save predictions to files, compare on same data
     # TODO adding new features
     # TODO skip predictions
     # TODO improvements
@@ -153,4 +158,6 @@ if __name__ == '__main__':
     # TODO directories checking
     # TODO refactor
 
-    show_metrics(data, final_values)
+    result = merge_with_measured(data, final_values)
+    show_metrics(result)
+    save_predictions(result)
