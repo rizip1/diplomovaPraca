@@ -8,6 +8,7 @@ from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.gofplots import qqplot
 from statsmodels.stats.stattools import durbin_watson
 from feature_utils import get_autocorrect_func
+from stable_weather_detection import get_stable_func
 
 from scipy.stats.mstats import normaltest
 from scipy.stats import norm
@@ -404,13 +405,14 @@ def print_position_info(pos):
 
 
 def predict_new(data, x, y, model, window_length, window_period,
-                weight=None, autocorrect=False, stable=False):
+                weight=None, autocorrect=False, stable_func=None):
     start = window_length * window_period
     data_len = x.shape[0]
 
     predicted_all = [[], []]  # 0 - validity_date, 1 - predicted value
     model_errors = np.array([])
     autocorrect_func = get_autocorrect_func(autocorrect)
+    s_func = get_stable_func(stable_func)
 
     for i in range(start, data_len):
         print_position_info(i)
@@ -443,7 +445,7 @@ def predict_new(data, x, y, model, window_length, window_period,
             model.fit(x_train, y_train)
         y_predicted = model.predict(x_test.reshape(1, -1))
 
-        if (not ((stable and not is_stable_weather(data, i)) or
+        if (not ((s_func and not s_func(data, i)) or
                  (autocorrect and not autocorrect_ready))):
             predicted_all[0].append(val_date)
             predicted_all[1].append(y_predicted[0])

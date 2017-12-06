@@ -1,6 +1,6 @@
 config = {
     'data': 'data_tmp/data_11816.csv',
-    'stable': True,
+    'stable_func': 'union',
     'models': [
         {
             'model': 'ols',

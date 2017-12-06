@@ -133,7 +133,7 @@ if __name__ == '__main__':
                                        window_period=c['window_period'],
                                        weight=c.get('weight'),
                                        autocorrect=c.get('autocorrect'),
-                                       stable=config['stable'])
+                                       stable_func=config.get('stable_func'))
         predictions_all = merge_predictions(predictions_all, predicted_values)
 
     predictions_all_cleared = predictions_all.dropna()
@@ -145,7 +145,6 @@ if __name__ == '__main__':
                                         predictions_all_cleared.validity_date)
 
     # TODO stable weather detection
-    # TODO save predictions to files, compare on same data
     # TODO adding new features
     # TODO skip predictions
     # TODO improvements
