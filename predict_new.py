@@ -128,12 +128,16 @@ if __name__ == '__main__':
         x = data.drop(fieldsToDrop, axis=1).values
 
         model = get_model(c['model'], c['model_params'])
-        predicted_values = predict_new(data=data, x=x, y=y, model=model,
-                                       window_length=c['window_length'],
-                                       window_period=c['window_period'],
-                                       weight=c.get('weight'),
-                                       autocorrect=c.get('autocorrect'),
-                                       stable_func=config.get('stable_func'))
+        predicted_values = predict_new(
+            data=data, x=x, y=y, model=model,
+            window_length=c['window_length'],
+            window_period=c['window_period'],
+            weight=c.get('weight'),
+            autocorrect=c.get('autocorrect'),
+            stable=config['stable']['active'],
+            stable_func=config['stable']['func'],
+            ignore_small_errors=config['stable']['ise'])
+
         predictions_all = merge_predictions(predictions_all, predicted_values)
 
     predictions_all_cleared = predictions_all.dropna()

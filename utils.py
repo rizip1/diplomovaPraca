@@ -7,8 +7,9 @@ import pandas as pd
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.gofplots import qqplot
 from statsmodels.stats.stattools import durbin_watson
-from feature_utils import get_autocorrect_func
+from autocorrect_features import get_autocorrect_func
 from stable_weather_detection import get_stable_func
+from stable_weather_detection import is_error_small_enough
 
 from scipy.stats.mstats import normaltest
 from scipy.stats import norm
@@ -404,17 +405,48 @@ def print_position_info(pos):
         print('At position {}'.format(pos), end="\r")
 
 
-def predict_new(data, x, y, model, window_length, window_period,
-                weight=None, autocorrect=False, stable_func=None):
-    start = window_length * window_period
-    data_len = x.shape[0]
+def add_autocorrection(x_train, x_test, autocorrect, window_length,
+                       window_period, model_errors, position):
+    autocorrect_func = get_autocorrect_func(autocorrect)
 
+    autocorrect_ready = can_use_autocorrect(
+        model_errors, window_period, window_length)
+
+    if (autocorrect and autocorrect_ready):
+        autocorrect_col = autocorrect_func(model_errors, position,
+                                           window_period, window_length)
+        x_train_new = np.hstack(
+            (x_train, autocorrect_col.reshape(window_length, 1)))
+        x_test_new = np.hstack(
+            (x_test, autocorrect_func(model_errors, is_test_set=True)))
+        return (x_train_new, x_test_new, autocorrect_ready)
+    return (x_train, x_test, autocorrect_ready)
+
+
+def fit_model(model, x_train, y_train, weight):
+    weights = get_weights(weight, x_train)
+    if (weights is not None):
+        model.fit(x_train, y_train, sample_weight=weights)
+    else:
+        model.fit(x_train, y_train)
+
+
+def predictions_to_dataframe(predictions):
+    return pd.DataFrame.from_items(
+        [('validity_date', predictions[0]),
+         ('predicted', predictions[1]),
+         ], columns=['validity_date', 'predicted'])
+
+
+def predict_new(data, x, y, model, window_length, window_period,
+                weight=None, autocorrect=False, stable=False,
+                stable_func=None, ignore_small_errors=False):
+    start = window_length * window_period
     predicted_all = [[], []]  # 0 - validity_date, 1 - predicted value
     model_errors = np.array([])
-    autocorrect_func = get_autocorrect_func(autocorrect)
-    s_func = get_stable_func(stable_func)
+    stable_func = get_stable_func(stable_func)
 
-    for i in range(start, data_len):
+    for i in range(start, x.shape[0]):
         print_position_info(i)
         val_date = data.validity_date[i]
 
@@ -427,37 +459,24 @@ def predict_new(data, x, y, model, window_length, window_period,
             model_errors = np.array([])
             continue
 
-        autocorrect_ready = can_use_autocorrect(
-            model_errors, window_period, window_length)
+        x_train, x_test, autocorrect_ready = add_autocorrection(
+            x_train, x_test, autocorrect, window_length,
+            window_period, model_errors, i)
 
-        if (autocorrect and autocorrect_ready):
-            autocorrect_col = autocorrect_func(model_errors, i,
-                                               window_period, window_length)
-            x_train = np.hstack(
-                (x_train, autocorrect_col.reshape(window_length, -1)))
-            x_test = np.hstack(
-                (x_test, autocorrect_func(model_errors, is_test_set=True)))
-
-        weights = get_weights(weight, x_train)
-        if (weights is not None):
-            model.fit(x_train, y_train, sample_weight=weights)
-        else:
-            model.fit(x_train, y_train)
+        fit_model(model, x_train, y_train, weight)
         y_predicted = model.predict(x_test.reshape(1, -1))
 
-        if (not ((s_func and not s_func(data, i)) or
-                 (autocorrect and not autocorrect_ready))):
+        if (not ((stable_func and not stable_func(data, i)) or
+                 (autocorrect and not autocorrect_ready) or
+                 (autocorrect and ignore_small_errors and
+                  is_error_small_enough(model_errors)))):
             predicted_all[0].append(val_date)
             predicted_all[1].append(y_predicted[0])
 
         model_error = (y_predicted - y_test)[0]
         model_errors = np.append(model_errors, model_error)
 
-    df = pd.DataFrame.from_items(
-        [('validity_date', predicted_all[0]),
-         ('predicted', predicted_all[1]),
-         ], columns=['validity_date', 'predicted'])
-    return df
+    return predictions_to_dataframe(predicted_all)
 
 
 def predict(data, x, y, weight, models, shmu_predictions, window_len,

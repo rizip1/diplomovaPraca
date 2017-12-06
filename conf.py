@@ -1,16 +1,20 @@
 config = {
     'data': 'data_tmp/data_11816.csv',
-    'stable_func': 'union',
+    'stable': {
+        'active': True,
+        'func': 's2',
+        'ise': True,
+    },
     'models': [
         {
             'model': 'ols',
             'model_params': {
                 'fit_intercept': True,
             },
-            'weight': 0.90,
+            'weight': 0.93,
             'window_length': 10,
             'window_period': 24,
-            'autocorrect': 'err',
+            'autocorrect': 'error24',
         },
         {
             'model': 'ols',

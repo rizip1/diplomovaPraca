@@ -2,7 +2,7 @@ import numpy as np
 import re
 
 '''
-TODO look one more day ago
+No need to handle 'out of bound index' for any reasonable window length
 '''
 
 
@@ -10,7 +10,16 @@ def handle_missing(v1, v2):
     return v1 != -999 and v2 != -999
 
 
-def s1(data, pos):
+def is_error_small_enough(model_errors):
+    threshold = 0.5
+    if (len(model_errors) < 48):
+        return True
+    max_error = max(abs(model_errors[-24]), abs(model_errors[-48])) + 1
+    error_diff = abs(model_errors[-24] - model_errors[-48]) + 1
+    return (error_diff / max_error) < threshold
+
+
+def s1(data, pos, offset1=24, offset2=48):
     '''
     Distances between temperatures in t-24+i and t-48+i must not be greater
     than THRESHOLD for i=[-2,-1,0,1,2]
@@ -19,38 +28,38 @@ def s1(data, pos):
     threshold = 1
 
     for h in hours:
-        b_24 = data.loc[pos - 24 + h, 'current_temp']
-        b_48 = data.loc[pos - 48 + h, 'current_temp']
-        handle_missing(b_24, b_48)
-        if (abs(b_48 - b_24) > threshold):
+        v1 = data.loc[pos - offset1 + h, 'current_temp']
+        v2 = data.loc[pos - offset2 + h, 'current_temp']
+        handle_missing(v1, v2)
+        if (abs(v1 - v2) > threshold):
             return False
     return True
 
 
-def s2(data, pos):
+def s2(data, pos, offset1=24, offset2=48):
     '''
     Gaussian weighted distances between temperatures in t-24+i and t-48+i
-    must not be greater than THRESHOLD for i=[-2,-1,0,1,2]
+    must not be greater than THRESHOLD
     '''
     hours = [-2, -1, 0, 1, 2]
     gauss_weights = [0.15, 0.6, 1, 0.6, 0.15]
     window_sum = np.sum(gauss_weights)
     threshold = 1
+    dist = 0
 
-    for h in hours:
-        dist = 0
-        for w in gauss_weights:
-            b_24 = data.loc[pos - 24 + h, 'current_temp'] * w
-            b_48 = data.loc[pos - 48 + h, 'current_temp'] * w
-            handle_missing(b_24, b_48)
-            dist += abs(b_48 - b_24)
-        dist /= window_sum
-        if (dist > threshold):
-            return False
+    for i, h in enumerate(hours):
+        v1 = data.loc[pos - offset1 + h, 'current_temp'] * gauss_weights[i]
+        v2 = data.loc[pos - offset2 + h, 'current_temp'] * gauss_weights[i]
+        handle_missing(v1, v2)
+        dist += abs(v1 - v2)
+
+    dist /= window_sum
+    if (dist > threshold):
+        return False
     return True
 
 
-def s3(data, pos):
+def s3(data, pos, offset1=0, offset2=24):
     '''
     Distances between temperatures in ref_time+i and ref_time-24+i must not
     be greater than THRESHOLD for i=[-2,-1,0,1,2]
@@ -73,23 +82,58 @@ def s3(data, pos):
     o_pos = pos - offset
 
     for h in hours:
-        b_24 = data.loc[o_pos - 24 + h, 'current_temp']
-        b_48 = data.loc[o_pos - 48 + h, 'current_temp']
-        handle_missing(b_24, b_48)
-        if (abs(b_48 - b_24) > threshold):
+        v1 = data.loc[o_pos - offset1 + h, 'current_temp']
+        v2 = data.loc[o_pos - offset2 + h, 'current_temp']
+        handle_missing(v1, v2)
+        if (abs(v1 - v2) > threshold):
             return False
     return True
 
 
-def union(data, pos):
+def s4(data, pos):
+    '''
+    mark as stable also if weather conditions from last day
+    match well with weather conditions measured three days ago.
+    consider prediction time
+    '''
+    return s1(data, pos, offset1=24, offset2=72) or s1(data, pos)
+
+
+def s5(data, pos):
+    '''
+    mark as stable also if weather conditions from last day
+    match well with weather conditions measured three days ago.
+    consider prediction time
+    '''
+    return s2(data, pos, offset1=24, offset2=72) or s2(data, pos)
+
+
+def s6(data, pos):
+    '''
+    mark as stable also if weather conditions from time before making
+    the prediction match well with weather conditions measured
+    two days ago (from time before making the prediction)
+    '''
+    return s3(data, pos, offset1=0, offset2=48) or s3(data, pos)
+
+
+def union1(data, pos):
     return s1(data, pos) or s2(data, pos) or s3(data, pos)
+
+
+def union2(data, pos):
+    return s4(data, pos) or s5(data, pos) or s6(data, pos)
 
 
 stable_functions = {
     's1': s1,
     's2': s2,
     's3': s3,
-    'union': union,
+    's4': s4,
+    's5': s5,
+    's6': s6,
+    'union1': union1,
+    'union2': union2,
 }
 
 
