@@ -7,7 +7,7 @@ import pandas as pd
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.gofplots import qqplot
 from statsmodels.stats.stattools import durbin_watson
-from autocorrect_features import get_autocorrect_func
+from autocorrect_features import get_autocorrect_conf
 from stable_weather_detection import get_stable_func
 from stable_weather_detection import is_error_small_enough
 
@@ -407,18 +407,22 @@ def print_position_info(pos):
 
 def add_autocorrection(x_train, x_test, autocorrect, window_length,
                        window_period, model_errors, position):
-    autocorrect_func = get_autocorrect_func(autocorrect)
+    autocorrect_conf = get_autocorrect_conf(autocorrect)
+    can_use_autocorrect = autocorrect_conf['can_use_auto']
+    autocorrect_func = autocorrect_conf['func']
+    merge_func = autocorrect_conf['merge']
 
     autocorrect_ready = can_use_autocorrect(
         model_errors, window_period, window_length)
 
     if (autocorrect and autocorrect_ready):
-        autocorrect_col = autocorrect_func(model_errors, position,
-                                           window_period, window_length)
-        x_train_new = np.hstack(
-            (x_train, autocorrect_col.reshape(window_length, 1)))
-        x_test_new = np.hstack(
-            (x_test, autocorrect_func(model_errors, is_test_set=True)))
+        x_train_auto = autocorrect_func(model_errors, position,
+                                        window_period, window_length)
+
+        x_test_auto = autocorrect_func(model_errors, is_test_set=True)
+        x_train_new, x_test_new = merge_func(x_train, x_test,
+                                             x_train_auto, x_test_auto,
+                                             window_length)
         return (x_train_new, x_test_new, autocorrect_ready)
     return (x_train, x_test, autocorrect_ready)
 

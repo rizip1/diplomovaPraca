@@ -33,22 +33,22 @@ from conf import config
 from constants import PREDICTION_PATH, OTHER_PATH
 
 
-'''
-Basic model
+# Basic model
 fieldsToDrop = [
     'current_temp', 'current_humidity', 'current_pressure',
     'current_rainfall_last_hour', 'current_wind_speed',
     'current_wind_direction', 'future_temp', 'validity_date',
     'reference_date', 'p_time_rainfall_last_hour', 'p_time_humidity',
     'p_time_wind_speed', 'p_time_wind_direction', 'p_time_pressure']
-'''
 
+'''
 fieldsToDrop = [
     'current_temp', 'current_humidity', 'current_pressure',
     'current_rainfall_last_hour', 'current_wind_speed',
     'current_wind_direction', 'future_temp', 'validity_date',
     'reference_date', 'p_time_rainfall_last_hour',
     'p_time_wind_speed', 'p_time_pressure']
+'''
 
 
 def get_model(name, params):
