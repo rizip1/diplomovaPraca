@@ -51,10 +51,36 @@ fieldsToDrop = [
 '''
 
 
-def get_model(name, params):
+def get_model(name, params, x):
     model = None
     if (name == 'ols'):
         model = lm.LinearRegression(fit_intercept=params['fit_intercept'])
+    elif (name == 'lasso'):
+        # higher alpha = more regularization
+        model = lm.Lasso(alpha=0.1, copy_X=True, fit_intercept=True,
+                         normalize=False)
+    elif (name == 'lasso-cv'):
+        cv = TimeSeriesSplit(n_splits=5)
+        model = lm.LassoCV(fit_intercept=True, normalize=True, cv=cv)
+    elif (name == 'poly-lasso'):
+        poly = PolynomialFeatures(degree=2, include_bias=False)
+        x = poly.fit_transform(x)
+        model = lm.Lasso(alpha=0.3, copy_X=True, fit_intercept=True,
+                         normalize=False)
+    elif (name == 'ridge'):
+        # higher alpha = more regularization
+        model = lm.Ridge(alpha=2, copy_X=True, fit_intercept=True,
+                         normalize=False)
+    elif (name == 'ridge-cv'):
+        cv = TimeSeriesSplit(n_splits=5)
+        model = lm.RidgeCV(fit_intercept=True, normalize=False, cv=cv)
+    elif (name == 'elastic-cv'):
+        cv = TimeSeriesSplit(n_splits=5)
+        model = lm.ElasticNetCV(cv=cv)
+    elif (name == 'bayes-ridge'):
+        model = lm.BayesianRidge()
+    if (name == 'svr'):
+        model = svm.SVR(kernel='linear')
     return model
 
 
@@ -127,7 +153,7 @@ if __name__ == '__main__':
         y = data.future_temp.values
         x = data.drop(fieldsToDrop, axis=1).values
 
-        model = get_model(c['model'], c['model_params'])
+        model = get_model(c['model'], c['model_params'], x)
         predicted_values = predict_new(
             data=data, x=x, y=y, model=model,
             window_length=c['window_length'],
@@ -148,6 +174,7 @@ if __name__ == '__main__':
     final_values = join_date_and_values(predicted_values,
                                         predictions_all_cleared.validity_date)
 
+    # TODO normalization (at least for SVR)
     # TODO stable weather detection
     # TODO adding new features
     # TODO skip predictions

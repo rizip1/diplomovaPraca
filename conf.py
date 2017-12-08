@@ -7,14 +7,13 @@ config = {
     },
     'models': [
         {
-            'model': 'ols',
+            'model': 'svr',
             'model_params': {
                 'fit_intercept': True,
             },
-            'weight': 0.97,
             'window_length': 60,
             'window_period': 24,
-            'autocorrect': 'error24',
+            'autocorrect': 'error24_48',
         },
     ],
 }
