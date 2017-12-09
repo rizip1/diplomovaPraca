@@ -69,7 +69,7 @@ def get_model(name, params, x):
                          normalize=False)
     elif (name == 'ridge'):
         # higher alpha = more regularization
-        model = lm.Ridge(alpha=2, copy_X=True, fit_intercept=True,
+        model = lm.Ridge(alpha=0.5, copy_X=True, fit_intercept=True,
                          normalize=False)
     elif (name == 'ridge-cv'):
         cv = TimeSeriesSplit(n_splits=5)
@@ -79,8 +79,11 @@ def get_model(name, params, x):
         model = lm.ElasticNetCV(cv=cv)
     elif (name == 'bayes-ridge'):
         model = lm.BayesianRidge()
-    if (name == 'svr'):
-        model = svm.SVR(kernel='linear')
+    elif (name == 'svr'):
+        model = svm.SVR(kernel='linear', C=1000)
+        # model = svm.SVR(kernel='rbf', C=1000, gamma=0.05)
+    elif (name == 'knn'):
+        model = ng.KNeighborsRegressor(n_neighbors=1)
     return model
 
 
@@ -162,7 +165,8 @@ if __name__ == '__main__':
             autocorrect=c.get('autocorrect'),
             stable=config['stable']['active'],
             stable_func=config['stable']['func'],
-            ignore_small_errors=config['stable']['ise'])
+            ignore_diff_errors=config['stable']['ide'],
+            autocorrect_only_stable=config['stable']['aos'])
 
         predictions_all = merge_predictions(predictions_all, predicted_values)
 

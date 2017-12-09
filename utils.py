@@ -4,12 +4,15 @@ import numpy as np
 import math
 import pandas as pd
 
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
+
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.gofplots import qqplot
 from statsmodels.stats.stattools import durbin_watson
 from autocorrect_features import get_autocorrect_conf
 from stable_weather_detection import get_stable_func
-from stable_weather_detection import is_error_small_enough
+from stable_weather_detection import is_error_diff_enough
 
 from scipy.stats.mstats import normaltest
 from scipy.stats import norm
@@ -406,8 +409,13 @@ def print_position_info(pos):
 
 
 def add_autocorrection(x_train, x_test, autocorrect, window_length,
-                       window_period, model_errors, position):
+                       window_period, model_errors, position,
+                       autocorrect_only_stable, is_stable):
     autocorrect_conf = get_autocorrect_conf(autocorrect)
+    if ((autocorrect_conf is None) or
+            (autocorrect_only_stable and not is_stable)):
+        return (x_train, x_test, False)
+
     can_use_autocorrect = autocorrect_conf['can_use_auto']
     autocorrect_func = autocorrect_conf['func']
     merge_func = autocorrect_conf['merge']
@@ -442,9 +450,17 @@ def predictions_to_dataframe(predictions):
          ], columns=['validity_date', 'predicted'])
 
 
+def scale(scaler, x_train, x_test):
+    scaler.fit(x_train)
+    x_train = scaler.transform(x_train)
+    x_test = scaler.transform(x_test.reshape(1, -1))
+    return (x_train, x_test)
+
+
 def predict_new(data, x, y, model, window_length, window_period,
                 weight=None, autocorrect=False, stable=False,
-                stable_func=None, ignore_small_errors=False):
+                stable_func=None, ignore_diff_errors=False,
+                autocorrect_only_stable=False):
     start = window_length * window_period
     predicted_all = [[], []]  # 0 - validity_date, 1 - predicted value
     model_errors = np.array([])
@@ -463,17 +479,22 @@ def predict_new(data, x, y, model, window_length, window_period,
             model_errors = np.array([])
             continue
 
+        is_stable = stable_func(data, i)
+
         x_train, x_test, autocorrect_ready = add_autocorrection(
             x_train, x_test, autocorrect, window_length,
-            window_period, model_errors, i)
+            window_period, model_errors, i, autocorrect_only_stable,
+            is_stable)
+
+        # x_train, x_test = scale(StandardScaler(), x_train, x_test)
 
         fit_model(model, x_train, y_train, weight)
         y_predicted = model.predict(x_test.reshape(1, -1))
 
-        if (not ((stable_func and not stable_func(data, i)) or
+        if (not ((stable and not is_stable) or
                  (autocorrect and not autocorrect_ready) or
-                 (autocorrect and ignore_small_errors and
-                  is_error_small_enough(model_errors)))):
+                 (autocorrect and ignore_diff_errors and
+                  is_error_diff_enough(model_errors)))):
             predicted_all[0].append(val_date)
             predicted_all[1].append(y_predicted[0])
 

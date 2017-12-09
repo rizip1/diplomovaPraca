@@ -10,7 +10,7 @@ def handle_missing(v1, v2):
     return v1 != -999 and v2 != -999
 
 
-def is_error_small_enough(model_errors):
+def is_error_diff_enough(model_errors):
     threshold = 0.5
     if (len(model_errors) < 48):
         return True

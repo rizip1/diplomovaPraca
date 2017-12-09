@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 
 def error24(model_errors, pos=0, interval=0, window_length=0,
@@ -33,46 +34,43 @@ def error24_48(model_errors, pos=0, interval=0, window_length=0,
     return np.transpose(np.vstack((r1, r2)))
 
 
-def get_autocorrect_err2(model_errors, pos=0, interval=0, window_length=0,
-                         is_test_set=False):
+def error24_48_logvar(model_errors, pos=0, interval=0, window_length=0,
+                      is_test_set=False):
     '''
-    TODO
+    Return error variance for model errors at times t-24+i and t-48+i
+    where i in [-2,-1,0,1,2]
     '''
-    autocorrect_col = np.array([])
     offset = interval * window_length
+    spread = 2
 
     if (is_test_set):
-        pos_day_before = pos - 24 - offset
-        pos_two_days_before = pos - 48 - offset
-        e1 = model_errors[pos_two_days_before - 3: pos_two_days_before + 4]
-        e2 = model_errors[pos_day_before - 3: pos_day_before + 4]
+        e1 = model_errors[-(spread + 24): -(-(spread + 1) + 24)]
+        e2 = model_errors[-(spread + 48): -(-(spread + 1) + 48)]
+        return math.log(np.var(e1 - e2), 2)
 
-        total_diff = 0
-        for i in range(len(e1)):
-            total_diff += abs(e1[i] - e2[i])
-        return 1 / max(total_diff, 0.01)
-
-    for i in range(pos - 24 - (2 * offset), pos - 24 - offset, interval):
-        e1 = model_errors[i - 3: i + 4]
-        e2 = model_errors[i - 3 - 24: i + 4 - 24]
-
-        total_diff = 0
-        for i in range(len(e1)):
-            total_diff += abs(e1[i] - e2[i])
-
-        autocorrect_col = np.append(autocorrect_col, 1 / max(total_diff, 0.01))
+    autocorrect_col = np.array([])
+    for i in range(offset + 24, 24, -interval):
+        e1 = model_errors[-(i + spread): -(i - (spread + 1))]
+        e2 = model_errors[-(i + spread + 24): -(i - (spread + 1) + 24)]
+        autocorrect_col = np.append(
+            autocorrect_col, math.log(np.var(e1 - e2), 2))
 
     return autocorrect_col
 
 
 def can_use_autocorrect24(model_errors, interval, window_len):
-    period = 24 * 2
+    period = 24 * 1
     return len(model_errors) > (interval * window_len) + period
 
 
 def can_use_autocorrect24_48(model_errors, interval, window_len):
-    period = 24 * 3
+    period = 24 * 2
     return len(model_errors) > (interval * window_len) + period
+
+
+def can_use_autocorrect24_48_logvar(model_errors, interval, window_len):
+    period = 24 * 2
+    return len(model_errors) > (interval * window_len) + period + 2
 
 
 def merge24(x_train, x_test, x_train_auto, x_test_auto, window_length):
@@ -101,6 +99,11 @@ autocorrect_map = {
         'func': error24_48,
         'can_use_auto': can_use_autocorrect24_48,
         'merge': merge24_48,
+    },
+    'error24_48_logvar': {
+        'func': error24_48_logvar,
+        'can_use_auto': can_use_autocorrect24_48_logvar,
+        'merge': merge24,
     },
 }
 

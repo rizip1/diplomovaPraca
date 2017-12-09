@@ -46,12 +46,12 @@ def show_results(d1, d2, merged):
     mse_d2 = mse(d2.loc[index].predicted, d2.loc[index].future_temp)
 
     color_print('Data1 stats')
-    print('MAE', mae_d1)
-    print('MSE', mse_d1)
+    print('MAE {0:.4f}'.format(mae_d1))
+    print('MSE {0:.4f}'.format(mse_d1))
 
     color_print('\nData2 stats')
-    print('MAE', mae_d2)
-    print('MSE', mse_d2)
+    print('MAE {0:.4f}'.format(mae_d2))
+    print('MSE {0:.4f}'.format(mse_d2))
 
     print('\nPredictions count {}'.format(merged.shape[0]))
 
