@@ -9,6 +9,28 @@ stable
 config = {
     'data': 'data_tmp/data_11816.csv',
     'stable': {
+        'active': False,
+        'func': 's1',
+        'ide': True,
+        'aos': True,
+    },
+    'models': [
+        {
+            'model': 'ols',
+            'weight': False,
+            'model_params': {
+                'fit_intercept': True,
+            },
+            'window_length': 60,
+            'window_period': 12,
+        },
+    ],
+}
+
+'''
+config = {
+    'data': 'data_tmp/data_11816.csv',
+    'stable': {
         'active': True,
         'func': 's1',
         'ide': True,
@@ -35,3 +57,4 @@ config = {
         },
     ],
 }
+'''

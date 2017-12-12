@@ -6,7 +6,6 @@ import sklearn.neighbors as ng
 import pandas as pd
 import os
 
-import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from sklearn.model_selection import RandomizedSearchCV
@@ -23,9 +22,8 @@ from feature_utils import add_min_max
 from feature_utils import add_morning_and_afternoon_temp
 
 # from utils import save_predictions, save_bias, save_errors
-from utils import color_print, predict_new
-from parsers import get_predict_parser
-
+from utils import color_print, predict
+from improvements import save_improvements
 from conf import config
 
 # The pandas warning is statsmodel issue
@@ -102,12 +100,11 @@ def join_date_and_values(predicted_values, validity_date):
 
 
 def save_predictions(result):
-    result[['validity_date', 'predicted', 'future_temp']].to_csv(
-        '{}/predictions.csv'.format(PREDICTION_PATH),
-        index=False, sep=';')
+    result.to_csv('{}/predictions.csv'.format(PREDICTION_PATH),
+                  index=False, sep=';')
 
 
-def merge_with_measured(data, final_predictions):
+def merge_with_measured_and_shmu_predictions(data, final_predictions):
     cols_to_pick = ['validity_date', 'future_temp', 'future_temp_shmu']
     merged = pd.merge(final_predictions, data.loc[:, cols_to_pick],
                       on='validity_date', how='inner').dropna()
@@ -157,7 +154,7 @@ if __name__ == '__main__':
         x = data.drop(fieldsToDrop, axis=1).values
 
         model = get_model(c['model'], c['model_params'], x)
-        predicted_values = predict_new(
+        predicted_values = predict(
             data=data, x=x, y=y, model=model,
             window_length=c['window_length'],
             window_period=c['window_period'],
@@ -192,6 +189,7 @@ if __name__ == '__main__':
     # TODO directories checking
     # TODO refactor
 
-    result = merge_with_measured(data, final_values)
+    result = merge_with_measured_and_shmu_predictions(data, final_values)
+    save_improvements(result)
     show_metrics(result)
     save_predictions(result)

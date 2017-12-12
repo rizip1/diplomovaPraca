@@ -4,6 +4,7 @@ from sklearn.metrics import mean_squared_error as mse
 from sklearn.metrics import mean_absolute_error as mae
 from constants import PREDICTION_PATH
 from utils import color_print
+from improvements import compare_2_models_improvements
 
 '''
 Except data containing 'validity_date', 'predicted' and 'future_temp' columns
@@ -38,12 +39,12 @@ def get_data():
     return (d1, d2)
 
 
-def show_results(d1, d2, merged):
-    mae_d1 = mae(d1.loc[index].predicted, d1.loc[index].future_temp)
-    mse_d1 = mse(d1.loc[index].predicted, d1.loc[index].future_temp)
+def show_results(d1, d2):
+    mae_d1 = mae(d1.predicted, d1.future_temp)
+    mse_d1 = mse(d1.predicted, d1.future_temp)
 
-    mae_d2 = mae(d2.loc[index].predicted, d2.loc[index].future_temp)
-    mse_d2 = mse(d2.loc[index].predicted, d2.loc[index].future_temp)
+    mae_d2 = mae(d2.predicted, d1.future_temp)
+    mse_d2 = mse(d2.predicted, d2.future_temp)
 
     color_print('Data1 stats')
     print('MAE {0:.4f}'.format(mae_d1))
@@ -53,7 +54,11 @@ def show_results(d1, d2, merged):
     print('MAE {0:.4f}'.format(mae_d2))
     print('MSE {0:.4f}'.format(mse_d2))
 
-    print('\nPredictions count {}'.format(merged.shape[0]))
+    print('\nPredictions count {}'.format(d1.shape[0]))
+
+
+def save_improvements(d1, d2):
+    compare_2_models_improvements(d1, d2)
 
 
 if __name__ == '__main__':
@@ -63,7 +68,17 @@ if __name__ == '__main__':
     merged.set_index('validity_date', inplace=True)
     index = merged.index  # can query common rows using common index
 
+    # validity_date will be index and will not exist as column
     d1.set_index('validity_date', inplace=True)
     d2.set_index('validity_date', inplace=True)
 
-    show_results(d1, d2, merged)
+    d1_common = d1.loc[index]
+    d2_common = d2.loc[index]
+
+    show_results(d1_common, d2_common)
+
+    # get validity_column back
+    d1_common.reset_index(level=0, inplace=True)
+    d2_common.reset_index(level=0, inplace=True)
+
+    save_improvements(d1_common, d2_common)
