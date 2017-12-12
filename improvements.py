@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from utils import parse_hour, parse_month
 from constants import IMPROVEMENT_PATH, COMPARED_IMPROVEMENTS_PATH

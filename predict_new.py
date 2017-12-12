@@ -26,9 +26,12 @@ from utils import color_print, predict
 from improvements import save_improvements
 from conf import config
 
+from error_analysis import save_errors
+
 # The pandas warning is statsmodel issue
 
-from constants import PREDICTION_PATH, OTHER_PATH
+from constants import PREDICTION_PATH, OTHER_PATH, ERRORS_PATH
+from constants import ERRORS_AUTOCOR_PATH, ERRORS_ERRORS_PATH
 
 
 # Basic model
@@ -140,6 +143,15 @@ def setup_env():
     if not os.path.exists(PREDICTION_PATH):
         os.makedirs(PREDICTION_PATH)
 
+    if not os.path.exists(ERRORS_PATH):
+        os.makedirs(ERRORS_PATH)
+
+    if not os.path.exists(ERRORS_AUTOCOR_PATH):
+        os.makedirs(ERRORS_AUTOCOR_PATH)
+
+    if not os.path.exists(ERRORS_ERRORS_PATH):
+        os.makedirs(ERRORS_ERRORS_PATH)
+
 
 if __name__ == '__main__':
     setup_env()
@@ -193,3 +205,4 @@ if __name__ == '__main__':
     save_improvements(result)
     show_metrics(result)
     save_predictions(result)
+    save_errors(result)

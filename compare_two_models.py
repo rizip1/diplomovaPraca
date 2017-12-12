@@ -74,11 +74,9 @@ if __name__ == '__main__':
 
     d1_common = d1.loc[index]
     d2_common = d2.loc[index]
-
     show_results(d1_common, d2_common)
 
     # get validity_column back
     d1_common.reset_index(level=0, inplace=True)
     d2_common.reset_index(level=0, inplace=True)
-
     save_improvements(d1_common, d2_common)

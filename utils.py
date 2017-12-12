@@ -7,15 +7,9 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import StandardScaler
 
-from statsmodels.graphics.tsaplots import plot_acf
-from statsmodels.graphics.gofplots import qqplot
-from statsmodels.stats.stattools import durbin_watson
 from autocorrect_features import get_autocorrect_conf
 from stable_weather_detection import get_stable_func
 from stable_weather_detection import is_error_diff_enough
-
-from scipy.stats.mstats import normaltest
-from scipy.stats import norm
 
 
 class Colors:
@@ -147,28 +141,6 @@ def save_autocorrect_state(model_errors, x_train, x_test):
     os.sys.exit(1)
 
 
-def plot_normality(errors):
-    # based on D’Agostino and Pearson’s test that combines
-    # skew and kurtosis to produce an omnibus test of normality.
-    print('\nErrors normality p-value: ', normaltest(errors).pvalue)
-
-    mu, std = norm.fit(errors)
-    plt.figure(figsize=(12, 6))
-    plt.hist(errors, bins=30, normed=True)
-    xmin, xmax = plt.xlim()
-    x = np.linspace(xmin, xmax, 100)
-    p = norm.pdf(x, mu, std)
-    plt.plot(x, p, 'k', linewidth=2)
-    title = "Fit results: mu = %.2f,  std = %.2f" % (mu, std)
-    plt.title(title)
-    plt.savefig('other/errors_hist.png')
-    plt.close()
-
-    qqplot(errors)
-    plt.savefig('other/errors_qq.png')
-    plt.close()
-
-
 def parse_hour(date):
     m = re.search(
         r'^[0-9]{4}-[0-9]{2}-[0-9]{2} ([0-9]{2}):[0-9]{2}:[0-9]{2}$',
@@ -233,58 +205,6 @@ def save_bias(cum_bias):
     plt.ylabel('Bias')
     plt.xlabel('Prediction id')
     plt.savefig('other/cum_bias.png')
-    plt.close()
-
-
-def save_errors(predicted_errors, shmu_errors, cum_mse, cum_mae,
-                model_hour_errors):
-    max_count = 500
-
-    plt.figure(figsize=(12, 6))
-    ax = plt.subplot(111)
-    box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-    plt.plot(predicted_errors, 'k', label='predicted errors')
-    plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
-    plt.title('Temperature errors')
-    plt.ylabel('Error')
-    plt.xlabel('Samples')
-    plt.savefig('other/errors/errors.png')
-    plt.close()
-
-    print('\nSaving error plots ...')
-    for i in range(0, len(predicted_errors), max_count):
-        end = min(i + max_count, len(predicted_errors))
-        plt.figure(figsize=(12, 6))
-        ax = plt.subplot(111)
-        box = ax.get_position()
-        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-        plt.plot(predicted_errors[i:end], 'k', label='predicted errors')
-        plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
-        plt.title('Temperature errors')
-        plt.ylabel('Error')
-        plt.xlabel('Samples')
-        plt.savefig('other/errors/errors_{}.png'.format(i))
-        plt.close()
-
-    print('\n Durbin watson stats:')
-    for i in range(24):
-        print(durbin_watson(model_hour_errors[i]))
-        plot_acf(model_hour_errors[i], lags=60, alpha=0.01)
-        plt.savefig('other/errors/errors_autocorr_{}.png'.format(i))
-        plt.close()
-
-    plt.figure(figsize=(12, 6))
-    ax = plt.subplot(111)
-    box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-    plt.plot(cum_mse, 'k', label='cummulative mse')
-    plt.plot(cum_mae, 'r', label='cummulative mae')
-    plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
-    plt.title('Cummulative errors')
-    plt.ylabel('Error')
-    plt.xlabel('Samples')
-    plt.savefig('other/errors/cum_errors.png')
     plt.close()
 
 
