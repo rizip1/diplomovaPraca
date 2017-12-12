@@ -4,7 +4,7 @@ from utils import parse_hour, parse_month
 from constants import IMPROVEMENT_PATH, COMPARED_IMPROVEMENTS_PATH
 
 
-def divide_improvements(improvements):
+def _divide_improvements(improvements):
     morning = []
     afternoon = []
     for i, values in enumerate(improvements):
@@ -16,13 +16,13 @@ def divide_improvements(improvements):
     return (morning, afternoon)
 
 
-def get_hour_axis():
+def _get_hour_axis():
     return [(i + 1) for i in range(24)]
 
 
-def save_improvements_to_plots(improvements, seasonal_improvements):
-    x = get_hour_axis()
-    morning, afternoon = divide_improvements(improvements)
+def _save_improvements_to_plots(improvements, seasonal_improvements):
+    x = _get_hour_axis()
+    morning, afternoon = _divide_improvements(improvements)
 
     plt.figure(figsize=(12, 6))
     plt.plot(x[0:12], morning, 'r')
@@ -39,7 +39,8 @@ def save_improvements_to_plots(improvements, seasonal_improvements):
     colors = ['r', 'g', 'b', 'y']
 
     for index, period in enumerate(['spring', 'summer', 'autumn', 'winter']):
-        morning, afternoon = divide_improvements(seasonal_improvements[period])
+        morning, afternoon = _divide_improvements(
+            seasonal_improvements[period])
         plt.plot(x[0:12], morning, colors[index], label=period)
         plt.plot(x[12:], afternoon, colors[index])
 
@@ -53,7 +54,7 @@ def save_improvements_to_plots(improvements, seasonal_improvements):
     plt.close()
 
 
-def get_improvements(data):
+def _get_improvements(data):
     improvements = [[] for i in range(24)]
     seasonal_improvements = {
         'spring': [[] for i in range(24)],
@@ -88,17 +89,77 @@ def get_improvements(data):
     return (improvements, seasonal_improvements)
 
 
+def _save_improvements_file(file_name, morning, afternoon, total_improvements,
+                            total_worse, total_draws):
+    with open('{}/{}.txt'.format(IMPROVEMENT_PATH, file_name), 'w') as f:
+        f.write('Morning\n')
+        for v in morning:
+            f.write('{}\n'.format(v))
+
+        f.write('\nAfternoon\n')
+        for v in afternoon:
+            f.write('{}\n'.format(v))
+
+        f.write('\nTotal improvements: {}\n'.format(total_improvements))
+        f.write('Total worse: {}\n'.format(total_worse))
+        f.write('Total draws: {}\n'.format(total_draws))
+        f.write('Total records: {}\n'.format(
+                total_draws + total_improvements + total_worse))
+
+
+def _classify_improvements(improvements):
+    total_improvements = 0
+    total_draws = 0
+    total_worse = 0
+    morning = []
+    afternoon = []
+
+    for index, values in enumerate(improvements):
+        for v in values:
+            if (v < 0):
+                total_worse += 1
+            elif (v > 0):
+                total_improvements += 1
+            else:
+                total_draws += 1
+
+        val = np.mean(values)
+        if (index < 12):
+            morning.append(val)
+        else:
+            afternoon.append(val)
+
+    return (morning, afternoon, total_improvements, total_draws, total_worse)
+
+
+def _save_improvements_to_file(improvements, seasonal_improvements):
+
+    morning, afternoon, total_improvements, total_draws, \
+        total_worse = _classify_improvements(improvements)
+
+    _save_improvements_file('all_improvements', morning, afternoon,
+                            total_improvements, total_worse, total_draws)
+
+    for season, hour_values in seasonal_improvements.items():
+        morning, afternoon, total_improvements, total_draws, \
+            total_worse = _classify_improvements(hour_values)
+
+        file_name = '{}_improvemets.txt'.format(season)
+        _save_improvements_file(file_name, morning, afternoon,
+                                total_improvements, total_worse, total_draws)
+
+
 def compare_2_models_improvements(data1, data2):
-    improvements1, seasonal_improvements1 = get_improvements(data1)
-    improvements2, seasonal_improvements2 = get_improvements(data2)
+    improvements1, seasonal_improvements1 = _get_improvements(data1)
+    improvements2, seasonal_improvements2 = _get_improvements(data2)
 
     colors = ['b', 'g']
-    x = get_hour_axis()
+    x = _get_hour_axis()
 
     for index, period in enumerate(['spring', 'summer', 'autumn', 'winter']):
         plt.figure(figsize=(12, 6))
-        m1, a1 = divide_improvements(seasonal_improvements1[period])
-        m2, a2 = divide_improvements(seasonal_improvements2[period])
+        m1, a1 = _divide_improvements(seasonal_improvements1[period])
+        m2, a2 = _divide_improvements(seasonal_improvements2[period])
 
         plt.plot(x[0:12], m1, colors[0], label='Model 1')
         plt.plot(x[0:12], m2, colors[1], label='Model 2')
@@ -117,5 +178,6 @@ def compare_2_models_improvements(data1, data2):
 
 
 def save_improvements(data):
-    improvements, seasonal_improvements = get_improvements(data)
-    save_improvements_to_plots(improvements, seasonal_improvements)
+    improvements, seasonal_improvements = _get_improvements(data)
+    _save_improvements_to_plots(improvements, seasonal_improvements)
+    _save_improvements_to_file(improvements, seasonal_improvements)

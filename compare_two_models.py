@@ -11,7 +11,7 @@ Except data containing 'validity_date', 'predicted' and 'future_temp' columns
 '''
 
 
-def get_parser():
+def _get_parser():
     '''
     Parse command line arguments
     '''
@@ -26,8 +26,8 @@ def get_parser():
     return parser
 
 
-def get_data():
-    parser = get_parser()
+def _get_data():
+    parser = _get_parser()
     args = parser.parse_args()
 
     path1 = args.file1
@@ -39,7 +39,7 @@ def get_data():
     return (d1, d2)
 
 
-def show_results(d1, d2):
+def _show_results(d1, d2):
     mae_d1 = mae(d1.predicted, d1.future_temp)
     mse_d1 = mse(d1.predicted, d1.future_temp)
 
@@ -57,12 +57,12 @@ def show_results(d1, d2):
     print('\nPredictions count {}'.format(d1.shape[0]))
 
 
-def save_improvements(d1, d2):
+def _save_improvements(d1, d2):
     compare_2_models_improvements(d1, d2)
 
 
 if __name__ == '__main__':
-    d1, d2 = get_data()
+    d1, d2 = _get_data()
 
     merged = pd.merge(d1, d2, on='validity_date', how='inner')
     merged.set_index('validity_date', inplace=True)
@@ -74,9 +74,9 @@ if __name__ == '__main__':
 
     d1_common = d1.loc[index]
     d2_common = d2.loc[index]
-    show_results(d1_common, d2_common)
+    _show_results(d1_common, d2_common)
 
     # get validity_column back
     d1_common.reset_index(level=0, inplace=True)
     d2_common.reset_index(level=0, inplace=True)
-    save_improvements(d1_common, d2_common)
+    _save_improvements(d1_common, d2_common)

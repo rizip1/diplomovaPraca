@@ -8,9 +8,6 @@ import argparse
 import re
 from datetime import datetime, timedelta
 
-from utils import parse_month, parse_hour
-from utils import save_hour_value, plot_hour_results
-
 from db import save_data_for_station, get_stations
 from sklearn.ensemble import ExtraTreesRegressor
 
@@ -34,6 +31,10 @@ label_mapping = {
 label_order = ['current_pressure', 'current_wind_speed',
                'current_wind_direction', 'current_rainfall_last_hour',
                'current_temp', 'current_humidity', 'future_temp_shmu']
+
+'''
+TODO refactor this file
+'''
 
 
 def get_parser():
@@ -71,9 +72,6 @@ is input_folder-output_folder''')
     parser.add_argument('--stable-weather', action='store_true', default=False,
                         dest='stable_weather',
                         help='Will plot table weather')
-    parser.add_argument('--compare-improvements', action='store_true',
-                        default=False, dest='compare_improvements',
-                        help='Will compare improvements')
     parser.add_argument('--replace-missing', action='store_true',
                         default=False, dest='replace_missing',
                         help='Will replace missing data')
@@ -291,7 +289,6 @@ if __name__ == '__main__':
     data_missing_path = args.data_missing_path
     create_shmu_errors = args.shmu_errors
     stable_weather = args.stable_weather
-    compare_improvements = args.compare_improvements
     replace_missing = args.replace_missing
 
     stations = get_stations()
@@ -519,63 +516,6 @@ if __name__ == '__main__':
         data = data.drop(fieldsToDrop, axis=1)
         plot_features(data)
 
-    if (compare_improvements):
-        seasons = ['spring', 'summer', 'autumn', 'winter']
-        x_m = [(i + 1) for i in range(12)]
-        x_a = [(i + 13) for i in range(12)]
-
-        for index, s in enumerate(seasons):
-            base = pd.read_csv('improvement/compare/{}_base.csv'.format(s))
-            alt = pd.read_csv('improvement/compare/{}_alt.csv'.format(s))
-
-            plt.figure(figsize=(12, 6))
-            plt.plot(x_m, base.morning, 'b', label='original')
-            plt.plot(x_m, alt.morning, 'g', label='alternative')
-            plt.title('Morning {}'.format(s))
-            plt.ylabel('Improvement')
-            plt.xlabel('Hour')
-            plt.xticks(x_m)
-            plt.grid()
-            plt.legend(bbox_to_anchor=(0.97, 1.015), loc=2)
-            plt.savefig('improvement/compared/morning_{}.png'.format(s))
-            plt.close()
-
-            plt.figure(figsize=(12, 6))
-            plt.plot(x_a, base.afternoon, 'b', label='original')
-            plt.plot(x_a, alt.afternoon, 'g', label='alternative')
-            plt.title('Afternoon {}'.format(s))
-            plt.ylabel('Improvement')
-            plt.xlabel('Hour')
-            plt.xticks(x_a)
-            plt.grid()
-            plt.legend(bbox_to_anchor=(0.97, 1.015), loc=2)
-            plt.savefig('improvement/compared/afternoon_{}.png'.format(s))
-            plt.close()
-
-    if (create_shmu_errors):
-        data = pd.read_csv('data/data_11816.csv', delimiter=';')
-        shmu_errors = [[] for i in range(24)]
-        seasonal_shmu_errors = {
-            'spring': [[] for i in range(24)],
-            'summer': [[] for i in range(24)],
-            'autumn': [[] for i in range(24)],
-            'winter': [[] for i in range(24)],
-        }
-
-        data_len = data.shape[0]
-        for i in range(data_len):
-            val_date = data.validity_date[i]
-            val_date_hour = parse_hour(val_date)
-            val_date_month = parse_month(val_date)
-
-            error = abs(
-                data.loc[i, 'future_temp'] - data.loc[i, 'future_temp_shmu'])
-
-            save_hour_value(shmu_errors, seasonal_shmu_errors,
-                            error, val_date_hour, val_date_month)
-
-        plot_hour_results(shmu_errors, seasonal_shmu_errors,
-                          'SHMU errors', 'shmu_errors')
     if (stable_weather):
         data = pd.read_csv('data/data_11816.csv', delimiter=';')
         data_len = data.shape[0]

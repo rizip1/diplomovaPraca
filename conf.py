@@ -6,6 +6,10 @@ stable
     aos    - 'autocorrect_only_stable' add autocorrect data only if it is stable weather
 '''
 
+'''
+scale - (False, 'min-max', 'standard')
+'''
+
 config = {
     'data': 'data_tmp/data_11816.csv',
     'stable': {
@@ -18,11 +22,12 @@ config = {
         {
             'model': 'ols',
             'weight': False,
+            'scale': False,
             'model_params': {
                 'fit_intercept': True,
             },
             'window_length': 60,
-            'window_period': 12,
+            'window_period': 24,
         },
     ],
 }

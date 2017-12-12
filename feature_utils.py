@@ -3,6 +3,10 @@ import math
 import numpy as np
 import pandas as pd
 
+'''
+TODO refactor/reuse code
+'''
+
 
 def feature_lagged_by_hours_p_time(data, feature, lags, lag_by=12):
     '''

@@ -1,16 +1,16 @@
+import os
+import pandas as pd
+
 import sklearn.linear_model as lm
 import sklearn.svm as svm
 import sklearn.ensemble as dt
 import sklearn.neural_network as nn
 import sklearn.neighbors as ng
-import pandas as pd
-import os
-
-from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from feature_utils import add_moments
 from feature_utils import shmu_error_prediction_time_moment
@@ -21,18 +21,17 @@ from feature_utils import add_shmu_error
 from feature_utils import add_min_max
 from feature_utils import add_morning_and_afternoon_temp
 
-# from utils import save_predictions, save_bias, save_errors
-from utils import color_print, predict
+from utils import color_print
+from predict import predict
 from improvements import save_improvements
 from conf import config
-
 from error_analysis import save_errors
-
-# The pandas warning is statsmodel issue
 
 from constants import PREDICTION_PATH, OTHER_PATH, ERRORS_PATH
 from constants import ERRORS_AUTOCOR_PATH, ERRORS_ERRORS_PATH
+from constants import IMPROVEMENT_PATH, COMPARED_IMPROVEMENTS_PATH
 
+# The initial pandas warning is statsmodel issue
 
 # Basic model
 fieldsToDrop = [
@@ -152,6 +151,12 @@ def setup_env():
     if not os.path.exists(ERRORS_ERRORS_PATH):
         os.makedirs(ERRORS_ERRORS_PATH)
 
+    if not os.path.exists(IMPROVEMENT_PATH):
+        os.makedirs(IMPROVEMENT_PATH)
+
+    if not os.path.exists(COMPARED_IMPROVEMENTS_PATH):
+        os.makedirs(COMPARED_IMPROVEMENTS_PATH)
+
 
 if __name__ == '__main__':
     setup_env()
@@ -171,6 +176,7 @@ if __name__ == '__main__':
             window_length=c['window_length'],
             window_period=c['window_period'],
             weight=c.get('weight'),
+            scale=c.get('scale'),
             autocorrect=c.get('autocorrect'),
             stable=config['stable']['active'],
             stable_func=config['stable']['func'],
@@ -188,18 +194,10 @@ if __name__ == '__main__':
                                         predictions_all_cleared.validity_date)
 
     # TODO normalization (at least for SVR)
-    # TODO stable weather detection
     # TODO adding new features
     # TODO skip predictions
-    # TODO improvements
-    # TODO hour results
-    # TODO normality
-    # TODO bias
-    # TODO norm
     # TODO diff
     # TODO caching
-    # TODO directories checking
-    # TODO refactor
 
     result = merge_with_measured_and_shmu_predictions(data, final_values)
     save_improvements(result)

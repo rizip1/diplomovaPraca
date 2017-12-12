@@ -2,6 +2,10 @@ import psycopg2
 
 CONN_STRING = "host='localhost' dbname='diplomovka' user='postgres'"
 
+'''
+TODO simplify query
+'''
+
 
 def save_data_for_station(station_id, out_file):
     query = '''

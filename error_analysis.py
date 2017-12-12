@@ -13,7 +13,7 @@ from constants import ERRORS_PATH, ERRORS_AUTOCOR_PATH
 from constants import ERRORS_ERRORS_PATH
 
 
-def plot_normality(errors):
+def _plot_normality(errors):
     color_print('\nErrors normality tests')
     print('Null hypothesis states that the error distribution is normal')
 
@@ -42,7 +42,7 @@ def plot_normality(errors):
     plt.close()
 
 
-def plot_all_errors(errors, max_count=10000000):
+def _plot_all_errors(errors, max_count=10000000):
     '''
     If 'max_count' not specified save all errors to one graph
     '''
@@ -61,7 +61,7 @@ def plot_all_errors(errors, max_count=10000000):
         plt.close()
 
 
-def get_hour_errors(data):
+def _get_hour_errors(data):
     hour_errors = [[] for i in range(24)]
 
     for i in data.index:
@@ -74,7 +74,7 @@ def get_hour_errors(data):
     return hour_errors
 
 
-def save_autocorrelation(hour_errors):
+def _save_autocorrelation(hour_errors):
     '''
     Durbin-Watson
     http://www.statisticshowto.com/durbin-watson-test-coefficient/
@@ -97,8 +97,8 @@ def save_autocorrelation(hour_errors):
 
 def save_errors(data):
     errors = data.predicted - data.future_temp
-    plot_normality(errors)
-    plot_all_errors(errors, max_count=500)
+    _plot_normality(errors)
+    _plot_all_errors(errors, max_count=500)
 
-    hour_errors = get_hour_errors(data)
-    save_autocorrelation(hour_errors)
+    hour_errors = _get_hour_errors(data)
+    _save_autocorrelation(hour_errors)
