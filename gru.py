@@ -31,11 +31,11 @@ def get_test_values(test_y, test_x):
 
 dataset = pd.read_csv('data/data_11816.csv', delimiter=';')
 
-dataset = shmu_prediction_time_error(dataset, 1, 1, 0)
+# dataset = shmu_prediction_time_error(dataset, 1, 1, 0)
 
-dataset = add_moments(dataset, 'mean')
+# dataset = add_moments(dataset, 'mean')
 
-dataset = add_min_max(dataset, 'min')
+# dataset = add_min_max(dataset, 'min')
 
 to_drop = ['reference_date', 'validity_date',
            'current_temp', 'current_humidity',
@@ -85,7 +85,7 @@ for j in range(total_predictions):
     test_X_orig = test_X.copy()
     test_y_orig = test_y.copy()
 
-    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaler = MinMaxScaler(feature_range=(-1, 1))
     scaled = scaler.fit_transform(
         np.concatenate((train_X, train_y), axis=1))
 
@@ -100,14 +100,24 @@ for j in range(total_predictions):
     test_X = test_X.reshape((test_X.shape[0], 1, test_X.shape[1]))
 
     model = Sequential()
-    model.add(GRU(300, input_shape=(train_X.shape[1], train_X.shape[2]),
+
+    # seems best (on 60 samples comparable to OLS)
+    '''
+    model.add(GRU(10, input_shape=(train_X.shape[1], train_X.shape[2]),
                   activation='tanh', kernel_constraint=maxnorm(3)))
-    model.add(Dropout(0.3))
+    '''
+    model.add(GRU(50, input_shape=(train_X.shape[1], train_X.shape[2]),
+                  activation='tanh', kernel_constraint=maxnorm(3)))
+
+    # model.add(Dropout(0.3))
+    # recurrent_dropout=0.3
     model.add(Dense(1))
     model.compile(loss='mse', optimizer='RMSprop')
-    history = model.fit(train_X, train_y, epochs=100, batch_size=10,
+    history = model.fit(train_X, train_y, epochs=100, batch_size=4,
                         verbose=0, shuffle=False)
     yhat = model.predict(test_X)
+
+    print(yhat)
 
     # free tensorFlow memory
     backend.clear_session()
