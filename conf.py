@@ -4,10 +4,9 @@ stable
     func   - function to determine if it is stable weather
     ide    - 'ignore different errors' do not use autocorrection if prev errors were different enough
     aos    - 'autocorrect_only_stable' add autocorrect data only if it is stable weather
-'''
 
-'''
-scale - (False, 'min-max', 'standard')
+models:
+    scale - (False, 'min-max', 'standard')
 '''
 
 config = {
@@ -28,38 +27,41 @@ config = {
             },
             'window_length': 60,
             'window_period': 24,
-        },
-    ],
-}
-
-'''
-config = {
-    'data': 'data_tmp/data_11816.csv',
-    'stable': {
-        'active': True,
-        'func': 's1',
-        'ide': True,
-        'aos': True,
-    },
-    'models': [
-        {
-            'model': 'ols',
-            'weight': 0.9,
-            'model_params': {
-                'fit_intercept': True,
+            'features': {
+                'afternoon-morning': True,
+                'moments': 'mean',
+                'min-max': 'min-max',
+                'shmu-error': 24,
+                'shmu-error-moment': 'mean',
+                'shmu-error-p-time': {
+                    'lags': 1,
+                    'lag_by': 1,
+                    'exp': 0,
+                },
+                'feature-lagged-p-time': {
+                    'lags': 1,
+                    'lag_by': 12,
+                    'name': 'current_temp',
+                },
+                'feature-lagged': {
+                    'lags': 1,
+                    'lag_by': 12,
+                    'name': 'current_temp',
+                },
             },
-            'window_length': 30,
-            'window_period': 24,
-            'autocorrect': 'error24',
         },
         {
             'model': 'ols',
+            'weight': False,
+            'scale': False,
             'model_params': {
                 'fit_intercept': True,
             },
             'window_length': 60,
             'window_period': 24,
+            'features': {
+                'moments': 'var',
+            },
         },
     ],
 }
-'''

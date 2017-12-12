@@ -13,12 +13,12 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from feature_utils import add_moments
+from feature_utils import add_min_max
 from feature_utils import shmu_error_prediction_time_moment
 from feature_utils import feature_lagged_by_hours
 from feature_utils import feature_lagged_by_hours_p_time
 from feature_utils import shmu_prediction_time_error
 from feature_utils import add_shmu_error
-from feature_utils import add_min_max
 from feature_utils import add_morning_and_afternoon_temp
 
 from utils import color_print
@@ -80,10 +80,36 @@ def get_model(name, params, x):
     elif (name == 'bayes-ridge'):
         model = lm.BayesianRidge()
     elif (name == 'svr'):
+        # larger C = penalize the cost of missclasification more
+        '''
+        cv = TimeSeriesSplit(n_splits=5)
+        parameters = {
+            'C': [0.01, 0.1, 1, 10],
+            'epsilon': [0.05, 0.1]
+        }
+        s = svm.SVR(kernel='linear')
+        model = GridSearchCV(s, parameters, cv=cv)
+        '''
         model = svm.SVR(kernel='linear', C=1000)
         # model = svm.SVR(kernel='rbf', C=1000, gamma=0.05)
     elif (name == 'knn'):
         model = ng.KNeighborsRegressor(n_neighbors=1)
+    elif (name == 'gradient-boost'):
+        model = dt.GradientBoostingRegressor(
+            n_estimators=300, learning_rate=0.05, max_depth=5)
+    elif (name == 'rf'):
+        model = dt.RandomForestRegressor(n_estimators=300, max_depth=5)
+    elif (name == 'nn'):
+        # smaller alpha = more regularization
+        cv = TimeSeriesSplit(n_splits=4)
+        parameters = {
+            'hidden_layer_sizes': [
+                [30], [50], [100], [30, 30]
+            ],
+            'alpha': [1, 0.1, 0.01, 0.001, 0.0001]
+        }
+        n = nn.MLPRegressor(activation='relu', solver='lbfgs')
+        model = RandomizedSearchCV(n, parameters, n_iter=3, cv=cv)
     return model
 
 
@@ -158,6 +184,41 @@ def setup_env():
         os.makedirs(COMPARED_IMPROVEMENTS_PATH)
 
 
+def add_features(data, features_conf):
+    data = add_moments(data, features_conf.get('moments'))
+    data = add_min_max(data, features_conf.get('min-max'))
+    data = add_shmu_error(data, features_conf.get('shmu-error'))
+
+    data = shmu_error_prediction_time_moment(
+        data, features_conf.get('shmu-error-moment'))
+
+    data = add_morning_and_afternoon_temp(
+        data, features_conf.get('afternoon-morning'))
+
+    conf = features_conf.get('shmu-error-p-time')
+    if (conf):
+        lags = conf.get('lags')
+        lag_by = conf.get('lag_by')
+        exp = conf.get('exp')
+        data = shmu_prediction_time_error(data, lags, lag_by, exp)
+
+    conf = features_conf.get('feature-lagged-p-time')
+    if (conf):
+        lags = conf.get('lags')
+        lag_by = conf.get('lag_by')
+        name = conf.get('name')
+        data = feature_lagged_by_hours_p_time(data, name, lags, lag_by)
+
+    conf = features_conf.get('feature-lagged')
+    if (conf):
+        lags = conf.get('lags')
+        lag_by = conf.get('lag_by')
+        name = conf.get('name')
+        data = feature_lagged_by_hours(data, name, lags, lag_by)
+
+    return data
+
+
 if __name__ == '__main__':
     setup_env()
     data_path = config['data']
@@ -165,14 +226,17 @@ if __name__ == '__main__':
     predictions_all = None
 
     for index, c in enumerate(config['models']):
-        print('Using {} model ...'.format(index + 1))
+        color_print('\nUsing {} model ...'.format(index + 1))
 
-        y = data.future_temp.values
-        x = data.drop(fieldsToDrop, axis=1).values
+        transformed_data = data.copy(deep=True)
+        transformed_data = add_features(transformed_data, c['features'])
+
+        y = transformed_data.future_temp.values
+        x = transformed_data.drop(fieldsToDrop, axis=1).values
 
         model = get_model(c['model'], c['model_params'], x)
         predicted_values = predict(
-            data=data, x=x, y=y, model=model,
+            data=transformed_data, x=x, y=y, model=model,
             window_length=c['window_length'],
             window_period=c['window_period'],
             weight=c.get('weight'),
@@ -193,14 +257,12 @@ if __name__ == '__main__':
     final_values = join_date_and_values(predicted_values,
                                         predictions_all_cleared.validity_date)
 
-    # TODO normalization (at least for SVR)
-    # TODO adding new features
-    # TODO skip predictions
-    # TODO diff
-    # TODO caching
-
     result = merge_with_measured_and_shmu_predictions(data, final_values)
     save_improvements(result)
     show_metrics(result)
     save_predictions(result)
     save_errors(result)
+
+# TODO diff
+# TODO control calculations ... MAE, MSE
+# TODO move parser documentation to conf.py
