@@ -15,17 +15,13 @@ pip install -r requirements.txt
 ```
 
 # Prediction script
-Example:
+All options can be set in `conf.py` file:
 ```
-python predict.py --file data.csv --model reg --weight 0.97 --length 60 --step 24
-```
-To get info about all possible switches type:
-```
-python predict.py --help
+python main.py
 ```
 
 # Data analysis script
-Run all data analysis tasks:
+Run some data analysis tasks:
 ```
 python data_analysis.py
 ```
