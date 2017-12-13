@@ -156,8 +156,12 @@ def compare_2_models_improvements(data1, data2):
     colors = ['b', 'g']
     x = _get_hour_axis()
 
+    fig = plt.figure(figsize=(14, 7))
+    fig.suptitle('Seasonal improvement', fontsize=14)
+    pos = [221, 222, 223, 224]
     for index, period in enumerate(['spring', 'summer', 'autumn', 'winter']):
-        plt.figure(figsize=(12, 6))
+        plt.subplot(pos[index])
+
         m1, a1 = _divide_improvements(seasonal_improvements1[period])
         m2, a2 = _divide_improvements(seasonal_improvements2[period])
 
@@ -167,14 +171,16 @@ def compare_2_models_improvements(data1, data2):
         plt.plot(x[12:], a1, colors[0])
         plt.plot(x[12:], a2, colors[1])
 
-        plt.title('Seasonal improvement')
+        plt.title(period)
+        plt.legend(loc=2)
         plt.ylabel('Errors')
         plt.xlabel('Hours')
         plt.xticks(x)
         plt.grid()
-        plt.legend(bbox_to_anchor=(1, 1.015), loc=2)
-        plt.savefig('{}/{}.png'.format(COMPARED_IMPROVEMENTS_PATH, period))
-        plt.close()
+
+    plt.tight_layout()
+    plt.savefig('{}/comparison.png'.format(COMPARED_IMPROVEMENTS_PATH))
+    plt.close()
 
 
 def save_improvements(data):

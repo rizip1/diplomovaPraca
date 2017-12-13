@@ -1,4 +1,3 @@
-import re
 import math
 import numpy as np
 import pandas as pd
@@ -8,6 +7,8 @@ from utils import parse_hour
 '''
 TODO refactor/reuse code, do not count on default params
 '''
+
+missing_data_value = -999
 
 
 def feature_lagged_by_hours_p_time(data, feature, lags, lag_by=12):
@@ -78,9 +79,12 @@ def add_shmu_error(data, before):
     data[new_col] = 0  # will set all rows to zero
 
     for j in range(new_start, data.shape[0]):
-        data.loc[j, new_col] = data.loc[
-            j - before, 'future_temp_shmu'] - data.loc[
-            j - before, 'future_temp']
+        fts = data.loc[j - before, 'future_temp_shmu']
+        ft = data.loc[j - before, 'future_temp']
+        if (fts == missing_data_value or ft == missing_data_value):
+            data.loc[j, new_col] = missing_data_value
+        else:
+            data.loc[j, new_col] = fts - ft
 
     # get rid of rows for which we do not have data
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
@@ -119,16 +123,20 @@ def shmu_prediction_time_error(data, lags=0, lag_by=0, exp=0):
             if (hour > 12):
                 hour -= 12
 
-            data.loc[j, new_col] = data.loc[
-                j - hour - ((i * lag_by)), 'future_temp_shmu'] - data.loc[
-                j - hour - ((i * lag_by)), 'future_temp']
+            fts = data.loc[j - hour - ((i * lag_by)), 'future_temp_shmu']
+            ft = data.loc[j - hour - ((i * lag_by)), 'future_temp']
 
-            if (exp != 0):
-                value = data.loc[j, new_col]
-                tmp = math.pow(exp, abs(value))
-                if (value < 0):
-                    tmp = -tmp
-                data.loc[j, new_col] = tmp
+            if (fts != missing_data_value and ft != missing_data_value):
+                data.loc[j, new_col] = fts - ft
+
+                if (exp != 0):
+                    value = data.loc[j, new_col]
+                    tmp = math.pow(exp, abs(value))
+                    if (value < 0):
+                        tmp = -tmp
+                    data.loc[j, new_col] = tmp
+            else:
+                data.loc[j, new_col] = missing_data_value
 
     # get rid of rows for which we do not have data
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
@@ -153,6 +161,7 @@ def add_morning_and_afternoon_temp(data, perform):
         hour = parse_hour(val_date)
         if (hour > 12):
             hour -= 12
+
         data.loc[j, new_col] = data.loc[j - hour - 5, 'current_temp']
 
     # get rid of rows for which we do not have data
@@ -186,7 +195,9 @@ def add_moments(data, moments):
             temp_end = j - hour + 2
             values = data.loc[temp_start: temp_end, 'current_temp']
 
-            if (moment == 'mean'):
+            if (values.values.__contains__(missing_data_value)):
+                data.loc[j, moment] = missing_data_value
+            elif (moment == 'mean'):
                 data.loc[j, moment] = np.mean(values)
             elif (moment == 'var'):
                 data.loc[j, moment] = np.var(values)
@@ -226,7 +237,9 @@ def add_min_max(data, min_max):
             temp_end = j - hour + 2
             values = data.loc[temp_start: temp_end, 'current_temp']
 
-            if (option == 'min'):
+            if (values.values.__contains__(missing_data_value)):
+                data.loc[j, option] = missing_data_value
+            elif (option == 'min'):
                 data.loc[j, option] = min(values)
             elif (option == 'max'):
                 data.loc[j, option] = max(values)
@@ -262,16 +275,18 @@ def shmu_error_prediction_time_moment(data, moments):
             if (hour > 12):
                 hour -= 12
 
-            var_values = []
+            values = []
             for i in range(samples + 1):
                 sh_error = data.loc[j - hour - i, 'future_temp'] - \
                     data.loc[j - hour - i, 'future_temp_shmu']
-                var_values.append(sh_error)
+                values.append(sh_error)
 
-            if (option == 'mean'):
-                data.loc[j, new_col] = np.mean(var_values)
+            if (values.__contains__(missing_data_value)):
+                data.loc[j, new_col] = missing_data_value
+            elif (option == 'mean'):
+                data.loc[j, new_col] = np.mean(values)
             elif (option == 'var'):
-                data.loc[j, new_col] = np.var(var_values)
+                data.loc[j, new_col] = np.var(values)
 
     # get rid of rows for which we do not have data
     return data.iloc[new_start:data_size, :].reset_index(drop=True)
