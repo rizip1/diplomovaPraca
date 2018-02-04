@@ -12,7 +12,7 @@ models:
 config = {
     'data': 'data_tmp/data_11816.csv',
     'stable': {
-        'active': True,
+        'active': False,
         'func': 's7',
         'ide': True,
         'aos': True,
@@ -21,7 +21,7 @@ config = {
         {
             'model': 'ols',
             'weight': False,
-            'autocorrect': 'error24',
+            'diff': False,
             'scale': False,
             'model_params': {
                 'fit_intercept': True,
@@ -33,6 +33,8 @@ config = {
         },
     ],
 }
+
+# Note: as implemented now, 'diff' can not be used with 'autocorrection'
 
 # TEMPLATE
 '''
@@ -46,6 +48,7 @@ config = {
         'window_length': 60,
         'window_period': 24,
         'autocorrect': 'error24',
+        'diff': False,
         'features': {
             'afternoon-morning': True,
             'moments': 'mean',

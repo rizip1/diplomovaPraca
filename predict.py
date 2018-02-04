@@ -10,7 +10,7 @@ from stable_weather_detection import get_stable_func
 from stable_weather_detection import is_error_diff_enough
 
 
-def _get_train_data(x, y, i, start, interval, diff=False):
+def _get_train_data(x, y, i, start, interval, diff):
     x_train = x[i - start:i:interval, :]
     y_train = y[i - start:i:interval]
 
@@ -21,7 +21,7 @@ def _get_train_data(x, y, i, start, interval, diff=False):
     return x_train, y_train
 
 
-def _get_test_data(x, y, i, interval, diff=False):
+def _get_test_data(x, y, i, interval, diff):
     x_test = x[i, :]
     y_test = y[i]
 
@@ -114,7 +114,7 @@ def _scale_data(scale, x_train, x_test):
 def predict(data, x, y, model, window_length, window_period,
             weight=None, scale=False, autocorrect=False, stable=False,
             stable_func=None, ignore_diff_errors=False,
-            autocorrect_only_stable=False):
+            autocorrect_only_stable=False, diff=False):
     start = window_length * window_period
     predicted_all = [[], []]  # 0 - validity_date, 1 - predicted value
     model_errors = np.array([])
@@ -125,8 +125,8 @@ def predict(data, x, y, model, window_length, window_period,
         val_date = data.validity_date[i]
 
         x_train, y_train = _get_train_data(
-            x, y, i, start, window_period, diff=False)
-        x_test, y_test = _get_test_data(x, y, i, window_period, diff=False)
+            x, y, i, start, window_period, diff=diff)
+        x_test, y_test = _get_test_data(x, y, i, window_period, diff=diff)
 
         if (_contains_missing_data(
                 x_train, y_train, x_test, np.matrix(y_test))):
@@ -144,6 +144,9 @@ def predict(data, x, y, model, window_length, window_period,
 
         _fit_model(model, x_train, y_train, weight)
         y_predicted = model.predict(x_test.reshape(1, -1))
+
+        if (diff):
+            y_predicted += y_train[-1]
 
         if (not ((stable and not is_stable) or
                  (autocorrect and not autocorrect_ready) or

@@ -245,7 +245,8 @@ if __name__ == '__main__':
             stable=config['stable']['active'],
             stable_func=config['stable']['func'],
             ignore_diff_errors=config['stable']['ide'],
-            autocorrect_only_stable=config['stable']['aos'])
+            autocorrect_only_stable=config['stable']['aos'],
+            diff=c.get('diff'))
 
         predictions_all = merge_predictions(predictions_all, predicted_values)
 
