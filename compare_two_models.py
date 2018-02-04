@@ -1,10 +1,14 @@
 import pandas as pd
 import argparse
+import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error as mse
 from sklearn.metrics import mean_absolute_error as mae
 from constants import PREDICTION_PATH
 from utils import color_print
 from improvements import compare_2_models_improvements
+from scipy.stats import wilcoxon, kstest, norm
+from constants import OTHER_PATH
 
 '''
 Except data containing 'validity_date', 'predicted' and 'future_temp' columns
@@ -55,6 +59,27 @@ def _show_results(d1, d2):
     print('MSE {0:.4f}'.format(mse_d2))
 
     print('\nPredictions count {}'.format(d1.shape[0]))
+
+    err1 = np.absolute(d1.predicted - d1.future_temp)
+    err2 = np.absolute(d2.predicted - d2.future_temp)
+
+    dist = err1 - err2
+    mu, std = norm.fit(dist)
+    # tests the null hypothesis that values (absolute errors)
+    # commes from normal distribution
+    print('Kol-Schirnov', kstest((dist - mu) / std, 'norm').pvalue)
+
+    # plot absolute errors dependence
+    plt.figure(figsize=(12, 6))
+    plt.plot(err1, err2, 'o')
+    plt.title('Absolute errors dependence')
+    plt.ylabel('Errors1')
+    plt.xlabel('Errors2')
+    plt.savefig('{}/errors_dependance.png'.format(OTHER_PATH))
+
+    # tests the null hypothesis that two related paired
+    # samples come from the same distribution
+    print('Paired Wilcoxon', wilcoxon(err1, err2).pvalue)
 
 
 def _save_improvements(d1, d2):

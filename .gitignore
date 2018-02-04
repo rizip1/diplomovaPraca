@@ -9,4 +9,5 @@ lib/
 pip-selfcheck.json
 missing_measures_info.txt
 improvement
+predictions
 errors

@@ -90,7 +90,8 @@ def _save_autocorrelation(hour_errors):
         for i in range(24):
             dw = durbin_watson(hour_errors[i])
             f.write('{0}\t {1:.4f} \n'.format(i + 1, dw))
-            plot_acf(hour_errors[i], lags=60, alpha=0.05)
+            lags = min(60, len(hour_errors[i]) - 1)
+            plot_acf(hour_errors[i], lags=lags, alpha=0.05)
             plt.savefig('{}/{}.png'.format(ERRORS_AUTOCOR_PATH,  i + 1))
             plt.close()
 

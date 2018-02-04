@@ -117,6 +117,23 @@ def s6(data, pos):
     return s3(data, pos, offset1=0, offset2=48) or s3(data, pos)
 
 
+def s7(data, pos, offset=24):
+    '''
+    Distances between predicted temperatures in t+i and t-24+i must not
+    be greater than THRESHOLD for i=[-2,-1,0]
+    '''
+    hours = [-5, -4, -3, -2, -1, 0]
+    threshold = 1
+
+    for h in hours:
+        v1 = data.loc[pos + h, 'future_temp_shmu']
+        v2 = data.loc[pos - offset + h, 'future_temp_shmu']
+        handle_missing(v1, v2)
+        if (abs(v1 - v2) > threshold):
+            return False
+    return True
+
+
 def union1(data, pos):
     return s1(data, pos) or s2(data, pos) or s3(data, pos)
 
@@ -132,6 +149,7 @@ stable_functions = {
     's4': s4,
     's5': s5,
     's6': s6,
+    's7': s7,
     'union1': union1,
     'union2': union2,
 }
