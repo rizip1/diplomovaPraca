@@ -67,7 +67,8 @@ def _show_results(d1, d2):
     mu, std = norm.fit(dist)
     # tests the null hypothesis that values (absolute errors)
     # commes from normal distribution
-    print('Kol-Schirnov', kstest((dist - mu) / std, 'norm').pvalue)
+    print('Kol-Schirnov: {0:.6f}'.format(
+        kstest((dist - mu) / std, 'norm').pvalue))
 
     # plot absolute errors dependence
     plt.figure(figsize=(12, 6))
@@ -79,7 +80,13 @@ def _show_results(d1, d2):
 
     # tests the null hypothesis that two related paired
     # samples come from the same distribution
-    print('Paired Wilcoxon', wilcoxon(err1, err2).pvalue)
+    prob = wilcoxon(err1, err2).pvalue
+    print('Paired Wilcoxon: {0:.6f}'.format(prob))
+
+    # one-side test that 'err1' is less/greater than 'err2'
+    # NOTE: this depends on 'err1' and 'err2'
+    print('One-sided `err1` is less/greater than `err2`: {0:.6f}'.format(
+        prob / 2))
 
 
 def _save_improvements(d1, d2):

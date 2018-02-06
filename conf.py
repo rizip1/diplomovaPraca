@@ -28,7 +28,9 @@ config = {
             },
             'window_length': 60,
             'window_period': 24,
+            'skip': 1440,
             'features': {
+                'min-max': 'min',
             },
         },
     ],
@@ -49,6 +51,7 @@ config = {
         'window_period': 24,
         'autocorrect': 'error24',
         'diff': False,
+        'skip': 0,
         'features': {
             'afternoon-morning': True,
             'moments': 'mean',

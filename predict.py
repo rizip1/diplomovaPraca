@@ -10,9 +10,9 @@ from stable_weather_detection import get_stable_func
 from stable_weather_detection import is_error_diff_enough
 
 
-def _get_train_data(x, y, i, start, interval, diff):
-    x_train = x[i - start:i:interval, :]
-    y_train = y[i - start:i:interval]
+def _get_train_data(x, y, i, window_period, interval, diff):
+    x_train = x[i - (window_period * interval):i:interval, :]
+    y_train = y[i - (window_period * interval):i:interval]
 
     if (diff):
         x_train = np.diff(x_train, axis=0)
@@ -114,8 +114,8 @@ def _scale_data(scale, x_train, x_test):
 def predict(data, x, y, model, window_length, window_period,
             weight=None, scale=False, autocorrect=False, stable=False,
             stable_func=None, ignore_diff_errors=False,
-            autocorrect_only_stable=False, diff=False):
-    start = window_length * window_period
+            autocorrect_only_stable=False, diff=False, skip=0):
+    start = window_length * window_period + skip
     predicted_all = [[], []]  # 0 - validity_date, 1 - predicted value
     model_errors = np.array([])
     stable_func = get_stable_func(stable_func)
@@ -125,7 +125,7 @@ def predict(data, x, y, model, window_length, window_period,
         val_date = data.validity_date[i]
 
         x_train, y_train = _get_train_data(
-            x, y, i, start, window_period, diff=diff)
+            x, y, i, window_length, window_period, diff=diff)
         x_test, y_test = _get_test_data(x, y, i, window_period, diff=diff)
 
         if (_contains_missing_data(

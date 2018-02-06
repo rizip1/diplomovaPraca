@@ -246,7 +246,8 @@ if __name__ == '__main__':
             stable_func=config['stable']['func'],
             ignore_diff_errors=config['stable']['ide'],
             autocorrect_only_stable=config['stable']['aos'],
-            diff=c.get('diff'))
+            diff=c.get('diff'),
+            skip=c.get('skip'))
 
         predictions_all = merge_predictions(predictions_all, predicted_values)
 
@@ -264,6 +265,5 @@ if __name__ == '__main__':
     save_predictions(result)
     save_errors(result)
 
-# TODO diff
 # TODO control calculations ... MAE, MSE
 # TODO move parser documentation to conf.py
