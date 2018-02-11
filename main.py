@@ -204,17 +204,19 @@ def add_features(data, features_conf):
 
     conf = features_conf.get('feature-lagged-p-time')
     if (conf):
-        lags = conf.get('lags')
-        lag_by = conf.get('lag_by')
-        name = conf.get('name')
-        data = feature_lagged_by_hours_p_time(data, name, lags, lag_by)
+        for c in conf:
+            lags = c.get('lags')
+            lag_by = c.get('lag_by')
+            name = c.get('name')
+            data = feature_lagged_by_hours_p_time(data, name, lags, lag_by)
 
     conf = features_conf.get('feature-lagged')
     if (conf):
-        lags = conf.get('lags')
-        lag_by = conf.get('lag_by')
-        name = conf.get('name')
-        data = feature_lagged_by_hours(data, name, lags, lag_by)
+        for c in conf:
+            lags = c.get('lags')
+            lag_by = c.get('lag_by')
+            name = c.get('name')
+            data = feature_lagged_by_hours(data, name, lags, lag_by)
 
     return data
 

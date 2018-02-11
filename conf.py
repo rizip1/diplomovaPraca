@@ -30,7 +30,7 @@ config = {
             'window_period': 24,
             'skip': 1440,
             'features': {
-                'min-max': 'min',
+                'min-max': 'min-max',
             },
         },
     ],
@@ -63,11 +63,18 @@ config = {
                 'lag_by': 1,
                 'exp': 0,
             },
-            'feature-lagged-p-time': {
-                'lags': 1,
-                'lag_by': 12,
-                'name': 'current_temp',
-            },
+            'feature-lagged-p-time': [
+                {
+                    'lags': 3,
+                    'lag_by': 1,
+                    'name': 'future_temp_shmu',
+                },
+                {
+                    'lags': 3,
+                    'lag_by': 1,
+                    'name': 'current_temp',
+                },
+            ],
             'feature-lagged': {
                 'lags': 1,
                 'lag_by': 12,

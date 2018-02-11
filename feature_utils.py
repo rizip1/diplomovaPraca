@@ -27,7 +27,7 @@ def feature_lagged_by_hours_p_time(data, feature, lags, lag_by=12):
         new_col = '{}_lag_p_time_{}_{}'.format(feature, i + 1, lag_by)
         data[new_col] = 0  # will set all rows to zero
 
-        start = (i + 1) * lag_by + lag_by
+        start = (i + 1) * lag_by + max(lag_by, 12)
         for j in range(start, data.shape[0]):
             val_date = data.loc[j, 'validity_date']
             hour = parse_hour(val_date)
@@ -36,7 +36,7 @@ def feature_lagged_by_hours_p_time(data, feature, lags, lag_by=12):
 
             # this is because otherwise we would get one time step before
             # required record, ok for shmu temp error
-            hour += 1
+            hour -= 1
 
             data.loc[j, new_col] = data.loc[
                 j - hour - ((i + 1) * lag_by), feature]
@@ -192,7 +192,9 @@ def add_moments(data, moments):
                 hour -= 12
 
             temp_start = j - hour - samples + 1
-            temp_end = j - hour + 2
+            temp_end = j - hour + 1
+            # Note: loc does open, open interval
+            # iloc does half open
             values = data.loc[temp_start: temp_end, 'current_temp']
 
             if (values.values.__contains__(missing_data_value)):
@@ -234,7 +236,7 @@ def add_min_max(data, min_max):
                 hour -= 12
 
             temp_start = j - hour - samples + 1
-            temp_end = j - hour + 2
+            temp_end = j - hour + 1
             values = data.loc[temp_start: temp_end, 'current_temp']
 
             if (values.values.__contains__(missing_data_value)):
@@ -277,6 +279,7 @@ def shmu_error_prediction_time_moment(data, moments):
 
             values = []
             for i in range(samples + 1):
+                # FIXME probably wrong
                 sh_error = data.loc[j - hour - i, 'future_temp'] - \
                     data.loc[j - hour - i, 'future_temp_shmu']
                 values.append(sh_error)

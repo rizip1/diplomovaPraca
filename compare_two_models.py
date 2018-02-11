@@ -83,6 +83,9 @@ def _show_results(d1, d2):
     prob = wilcoxon(err1, err2).pvalue
     print('Paired Wilcoxon: {0:.6f}'.format(prob))
 
+    prob = wilcoxon(err1 ** 2, err2 ** 2).pvalue
+    print('Paired Wilcoxon Squared: {0:.6f}'.format(prob))
+
     # one-side test that 'err1' is less/greater than 'err2'
     # NOTE: this depends on 'err1' and 'err2'
     print('One-sided `err1` is less/greater than `err2`: {0:.6f}'.format(

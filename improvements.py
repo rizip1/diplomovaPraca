@@ -173,7 +173,7 @@ def compare_2_models_improvements(data1, data2):
 
         plt.title(period)
         plt.legend(loc=2)
-        plt.ylabel('Errors')
+        plt.ylabel('Improvement')
         plt.xlabel('Hours')
         plt.xticks(x)
         plt.grid()
