@@ -8,6 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from autocorrect_features import get_autocorrect_conf
 from stable_weather_detection import get_stable_func
 from stable_weather_detection import is_error_diff_enough
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
 def _get_train_data(x, y, i, window_period, interval, diff):
@@ -120,6 +121,10 @@ def predict(data, x, y, model, window_length, window_period,
     model_errors = np.array([])
     stable_func = get_stable_func(stable_func)
 
+    train_mse = 0
+    train_mae = 0
+    r2 = 0
+
     for i in range(start, x.shape[0]):
         _print_position_info(i)
         val_date = data.validity_date[i]
@@ -152,10 +157,17 @@ def predict(data, x, y, model, window_length, window_period,
                  (autocorrect and not autocorrect_ready) or
                  (autocorrect and ignore_diff_errors and
                   is_error_diff_enough(model_errors)))):
+            r2 += model.score(x_train, y_train)
+            train_mse += mean_squared_error(model.predict(x_train), y_train)
+            train_mae += mean_absolute_error(model.predict(x_train), y_train)
             predicted_all[0].append(val_date)
             predicted_all[1].append(y_predicted[0])
 
         model_error = (y_predicted - y_test)[0]
         model_errors = np.append(model_errors, model_error)
+
+    print('TRAIN MAE: {0:.4f}'.format(train_mae / len(predicted_all[0])))
+    print('TRAIN MSE: {0:.4f}'.format(train_mse / len(predicted_all[0])))
+    print('R2: {0:.4f}'.format(r2 / len(predicted_all[0])))
 
     return _predictions_to_dataframe(predicted_all)

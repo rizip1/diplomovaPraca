@@ -7,7 +7,7 @@ import sklearn.ensemble as dt
 import sklearn.neural_network as nn
 import sklearn.neighbors as ng
 
-from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import mean_squared_error, mean_absolute_error
@@ -61,42 +61,39 @@ def get_model(name, params, x):
                          normalize=False)
     elif (name == 'lasso-cv'):
         cv = TimeSeriesSplit(n_splits=5)
-        model = lm.LassoCV(fit_intercept=True, normalize=True, cv=cv)
+        model = lm.LassoCV(fit_intercept=True, normalize=False, cv=cv)
     elif (name == 'poly-lasso'):
         poly = PolynomialFeatures(degree=2, include_bias=False)
         x = poly.fit_transform(x)
-        model = lm.Lasso(alpha=0.3, copy_X=True, fit_intercept=True,
+        model = lm.Lasso(alpha=0.01, copy_X=True, fit_intercept=True,
                          normalize=False)
     elif (name == 'ridge'):
         # higher alpha = more regularization
-        model = lm.Ridge(alpha=0.5, copy_X=True, fit_intercept=True,
+        model = lm.Ridge(alpha=1, copy_X=True, fit_intercept=True,
                          normalize=False)
     elif (name == 'ridge-cv'):
         cv = TimeSeriesSplit(n_splits=5)
         model = lm.RidgeCV(fit_intercept=True, normalize=False, cv=cv)
     elif (name == 'elastic-cv'):
         cv = TimeSeriesSplit(n_splits=5)
-        model = lm.ElasticNetCV(cv=cv)
+        model = lm.ElasticNetCV(cv=cv, fit_intercept=True, normalize=False)
     elif (name == 'bayes-ridge'):
         model = lm.BayesianRidge()
     elif (name == 'svr'):
         # larger C = penalize the cost of missclasification more
-        '''
         cv = TimeSeriesSplit(n_splits=5)
         parameters = {
-            'C': [0.01, 0.1, 1, 10],
-            'epsilon': [0.05, 0.1]
+            'C': [1, 3, 5, 10, 20, 50],
         }
-        s = svm.SVR(kernel='linear')
+        s = svm.SVR(kernel='rbf')
         model = GridSearchCV(s, parameters, cv=cv)
-        '''
-        model = svm.SVR(kernel='linear', C=1000)
-        # model = svm.SVR(kernel='rbf', C=1000, gamma=0.05)
+        # model = svm.SVR(kernel='linear', C=10, epsilon=0.01)
+        # model = svm.SVR(kernel='linear', C=100)
     elif (name == 'knn'):
         model = ng.KNeighborsRegressor(n_neighbors=1)
     elif (name == 'gradient-boost'):
         model = dt.GradientBoostingRegressor(
-            n_estimators=300, learning_rate=0.05, max_depth=5)
+            n_estimators=30, learning_rate=0.05, max_depth=5)
     elif (name == 'rf'):
         model = dt.RandomForestRegressor(n_estimators=300, max_depth=5)
     elif (name == 'nn'):
@@ -108,9 +105,10 @@ def get_model(name, params, x):
             ],
             'alpha': [1, 0.1, 0.01, 0.001, 0.0001]
         }
-        n = nn.MLPRegressor(activation='relu', solver='lbfgs')
-        model = RandomizedSearchCV(n, parameters, n_iter=3, cv=cv)
-    return model
+        model = nn.MLPRegressor(hidden_layer_sizes=10,
+                                activation='relu', solver='lbfgs')
+        # model = RandomizedSearchCV(n, parameters, n_iter=3, cv=cv)
+    return model, x
 
 
 def merge_predictions(predictions_all, predicted_values):
@@ -236,7 +234,7 @@ if __name__ == '__main__':
         y = transformed_data.future_temp.values
         x = transformed_data.drop(fieldsToDrop, axis=1).values
 
-        model = get_model(c['model'], c['model_params'], x)
+        model, x = get_model(c['model'], c['model_params'], x)
         predicted_values = predict(
             data=transformed_data, x=x, y=y, model=model,
             window_length=c['window_length'],

@@ -26,11 +26,11 @@ config = {
             'model_params': {
                 'fit_intercept': True,
             },
-            'window_length': 60,
+            'window_length': 120,
             'window_period': 24,
-            'skip': 1440,
+            'skip': 0,
             'features': {
-                'min-max': 'min-max',
+
             },
         },
     ],
@@ -75,11 +75,11 @@ config = {
                     'name': 'current_temp',
                 },
             ],
-            'feature-lagged': {
+            'feature-lagged': [{
                 'lags': 1,
-                'lag_by': 12,
-                'name': 'current_temp',
-            },
+                'lag_by': 1,
+                'name': 'future_temp_shmu',
+            }],
         },
     },
 '''
