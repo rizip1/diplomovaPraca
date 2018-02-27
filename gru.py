@@ -9,12 +9,10 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 from keras import backend
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
-from keras.layers import GRU
-from random import randint
+from keras.layers import GRU, LSTM, SimpleRNN
 
-from feature_utils import add_min_max
 from feature_utils import add_moments
-from feature_utils import shmu_prediction_time_error
+from feature_utils import feature_lagged_by_hours
 
 
 def get_predicted_values(test_x, yhat):
@@ -29,13 +27,10 @@ def get_test_values(test_y, test_x):
     inv_y = scaler.inverse_transform(inv_y)
     return inv_y[:, -1]
 
+
 dataset = pd.read_csv('data/data_11816.csv', delimiter=';')
-
-# dataset = shmu_prediction_time_error(dataset, 1, 1, 0)
-
-# dataset = add_moments(dataset, 'mean')
-
-# dataset = add_min_max(dataset, 'min')
+dataset = add_moments(dataset, 'mean')
+dataset = feature_lagged_by_hours(dataset, 'future_temp_shmu', 1, 1)
 
 to_drop = ['reference_date', 'validity_date',
            'current_temp', 'current_humidity',
@@ -61,8 +56,6 @@ predictions_made = 0
 mae_predict = 0
 mse_predict = 0
 
-total_predictions = 1000
-
 linear_mae = 0
 linear_mse = 0
 neural_mae = 0
@@ -71,8 +64,12 @@ neural_mse = 0
 reg_better = 0
 nn_better = 0
 
-for j in range(total_predictions):
-    i = randint(start, data_len - 1)
+weights = {}
+
+nprec = 0  # number of predictions made
+
+for i in range(start, start + 2000):
+    weights_key = i % 24  # count for hours
 
     train_X = x.iloc[i - start:i:interval, :].values
     train_y = y.iloc[i - start:i:interval].values.reshape(-1, 1)
@@ -101,23 +98,26 @@ for j in range(total_predictions):
 
     model = Sequential()
 
-    # seems best (on 60 samples comparable to OLS)
-    '''
-    model.add(GRU(10, input_shape=(train_X.shape[1], train_X.shape[2]),
-                  activation='tanh', kernel_constraint=maxnorm(3)))
-    '''
-    model.add(GRU(50, input_shape=(train_X.shape[1], train_X.shape[2]),
-                  activation='tanh', kernel_constraint=maxnorm(3)))
-
-    # model.add(Dropout(0.3))
-    # recurrent_dropout=0.3
+    # kernel_constraint=maxnorm(3)
+    # recurrent_initializer='identity'
+    # recurrent_dropout=0.2
+    model.add(GRU(40, input_shape=(train_X.shape[1], train_X.shape[2]),
+                  activation='tanh'))
     model.add(Dense(1))
-    model.compile(loss='mse', optimizer='RMSprop')
-    history = model.fit(train_X, train_y, epochs=100, batch_size=4,
-                        verbose=0, shuffle=False)
-    yhat = model.predict(test_X)
+    model.compile(loss='mae', optimizer='RMSprop', metrics=['mae'])
 
-    print(yhat)
+    if (weights_key not in weights):
+        model.fit(train_X, train_y, epochs=50, batch_size=4,
+                  verbose=1, shuffle=False)
+    else:
+        model.set_weights(weights[weights_key])
+        model.fit(train_X, train_y, epochs=2, batch_size=4,
+                  verbose=0, shuffle=False)
+
+    weights[weights_key] = model.get_weights()
+
+    yhat = model.predict(test_X)
+    nprec += 1
 
     # free tensorFlow memory
     backend.clear_session()
@@ -148,22 +148,23 @@ for j in range(total_predictions):
     if (abs(y_test - linear_prediction) > abs(y_test - y_predicted)):
         nn_better += 1
 
-    print('\nmae-lin-neu', linear_mae / predictions_made,
-          neural_mae / predictions_made)
-    print('mse-lin-neu', linear_mse / predictions_made,
-          neural_mse / predictions_made)
-
     y_predicted = (y_predicted + linear_prediction) / 2
 
     mae_predict += np.sum(abs(y_test - y_predicted))
     mse_predict += np.sum((y_test - y_predicted) ** 2)
 
-    print('mae', mae_predict / predictions_made)
-    print('mse', mse_predict / predictions_made)
-    print('predictions count', predictions_made)
+    if ((nprec % 10) == 0):
+        print('\nmae-lin-neu', linear_mae / predictions_made,
+              neural_mae / predictions_made)
+        print('mse-lin-neu', linear_mse / predictions_made,
+              neural_mse / predictions_made)
 
-    print('\nreg_better', reg_better)
-    print('nn_better', nn_better)
+        print('mae', mae_predict / predictions_made)
+        print('mse', mse_predict / predictions_made)
+        print('predictions count', predictions_made)
+
+        print('\nreg_better', reg_better)
+        print('nn_better', nn_better)
 
     all_y_test = np.append(all_y_test, y_test)
     all_predicted = np.append(all_predicted, y_predicted)
