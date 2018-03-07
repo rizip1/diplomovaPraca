@@ -17,6 +17,27 @@ def error24(model_errors, pos=0, interval=0, window_length=0,
     return model_errors[-(offset + 24): -24: interval]
 
 
+def error24Mean(model_errors, pos=0, interval=0, window_length=0,
+                is_test_set=False):
+    '''
+    both err24 and mean
+    '''
+    offset = interval * window_length
+    mean_offset = 12
+
+    if (is_test_set):
+        mean = np.mean(model_errors[-24 - mean_offset:-24 + 1])
+        return np.array([model_errors[-24], mean])
+
+    start = (offset + 24)
+    means = []
+    for i in range(start, 24, -24):
+        mean = np.mean(model_errors[-i - mean_offset:-i + 1])
+        means.append(mean)
+    err24 = model_errors[-(offset + 24): -24: interval]
+    return np.transpose(np.vstack((err24, np.array(means))))
+
+
 def error24_48(model_errors, pos=0, interval=0, window_length=0,
                is_test_set=False):
     '''
@@ -27,7 +48,7 @@ def error24_48(model_errors, pos=0, interval=0, window_length=0,
     offset = interval * window_length
 
     if (is_test_set):
-        return np.array([model_errors[-48], model_errors[-24]])
+        return np.array([model_errors[-24], model_errors[-48]])
 
     r1 = model_errors[-(offset + 24): -24: interval]
     r2 = model_errors[-(offset + 48): -48: interval]
@@ -105,6 +126,11 @@ autocorrect_map = {
         'can_use_auto': can_use_autocorrect24_48_logvar,
         'merge': merge24,
     },
+    'error24Mean': {
+        'func': error24Mean,
+        'can_use_auto': can_use_autocorrect24_48,
+        'merge': merge24_48,
+    }
 }
 
 
