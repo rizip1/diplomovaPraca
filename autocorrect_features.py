@@ -1,5 +1,4 @@
 import numpy as np
-import math
 
 
 def error24(model_errors, pos=0, interval=0, window_length=0,
@@ -17,25 +16,75 @@ def error24(model_errors, pos=0, interval=0, window_length=0,
     return model_errors[-(offset + 24): -24: interval]
 
 
-def error24Mean(model_errors, pos=0, interval=0, window_length=0,
-                is_test_set=False):
-    '''
-    both err24 and mean
-    '''
-    offset = interval * window_length
+def get_train_mean_1(model_errors, i):
     mean_offset = 12
+    return np.mean(model_errors[-i - mean_offset:-i + 1])
+
+
+def get_test_mean_1(model_errors):
+    mean_offset = 12
+    return np.mean(model_errors[-24 - mean_offset:-24 + 1])
+
+
+def get_train_mean_2(model_errors, i):
+    mean_offset = 12
+    return np.mean(model_errors[-i:-i + mean_offset + 1])
+
+
+def get_test_mean_2(model_errors):
+    mean_offset = 12
+    return np.mean(model_errors[-24:-24 + mean_offset + 1])
+
+
+def get_train_mean_3(model_errors, i):
+    mean_offset = 6
+    return np.mean(model_errors[-i - mean_offset:-i + mean_offset + 1])
+
+
+def get_test_mean_3(model_errors):
+    mean_offset = 6
+    return np.mean(model_errors[-24 - mean_offset:-24 + mean_offset + 1])
+
+
+def errorMean24Common(trainSetFunc, testSetFunc, model_errors, pos=0,
+                      interval=0, window_length=0, is_test_set=False):
+    offset = interval * window_length
 
     if (is_test_set):
-        mean = np.mean(model_errors[-24 - mean_offset:-24 + 1])
+        mean = testSetFunc(model_errors)
         return np.array([model_errors[-24], mean])
 
     start = (offset + 24)
     means = []
     for i in range(start, 24, -24):
-        mean = np.mean(model_errors[-i - mean_offset:-i + 1])
+        mean = trainSetFunc(model_errors, i)
         means.append(mean)
     err24 = model_errors[-(offset + 24): -24: interval]
     return np.transpose(np.vstack((err24, np.array(means))))
+
+
+def error24Mean1(model_errors, pos=0, interval=0, window_length=0,
+                 is_test_set=False):
+    '''
+    both err24 and mean (-36, -24)
+    '''
+    return errorMean24Common(get_train_mean_1, get_test_mean_1, **locals())
+
+
+def error24Mean2(model_errors, pos=0, interval=0, window_length=0,
+                 is_test_set=False):
+    '''
+    both err24 and mean (-24, -12)
+    '''
+    return errorMean24Common(get_train_mean_2, get_test_mean_2, **locals())
+
+
+def error24Mean3(model_errors, pos=0, interval=0, window_length=0,
+                 is_test_set=False):
+    '''
+    both err24 and mean (-30, -18)
+    '''
+    return errorMean24Common(get_train_mean_3, get_test_mean_3, **locals())
 
 
 def error24_48(model_errors, pos=0, interval=0, window_length=0,
@@ -55,30 +104,6 @@ def error24_48(model_errors, pos=0, interval=0, window_length=0,
     return np.transpose(np.vstack((r1, r2)))
 
 
-def error24_48_logvar(model_errors, pos=0, interval=0, window_length=0,
-                      is_test_set=False):
-    '''
-    Return error variance for model errors at times t-24+i and t-48+i
-    where i in [-2,-1,0,1,2]
-    '''
-    offset = interval * window_length
-    spread = 2
-
-    if (is_test_set):
-        e1 = model_errors[-(spread + 24): -(-(spread + 1) + 24)]
-        e2 = model_errors[-(spread + 48): -(-(spread + 1) + 48)]
-        return math.log(np.var(e1 - e2), 2)
-
-    autocorrect_col = np.array([])
-    for i in range(offset + 24, 24, -interval):
-        e1 = model_errors[-(i + spread): -(i - (spread + 1))]
-        e2 = model_errors[-(i + spread + 24): -(i - (spread + 1) + 24)]
-        autocorrect_col = np.append(
-            autocorrect_col, math.log(np.var(e1 - e2), 2))
-
-    return autocorrect_col
-
-
 def can_use_autocorrect24(model_errors, interval, window_len):
     period = 24 * 1
     return len(model_errors) > (interval * window_len) + period
@@ -87,11 +112,6 @@ def can_use_autocorrect24(model_errors, interval, window_len):
 def can_use_autocorrect24_48(model_errors, interval, window_len):
     period = 24 * 2
     return len(model_errors) > (interval * window_len) + period
-
-
-def can_use_autocorrect24_48_logvar(model_errors, interval, window_len):
-    period = 24 * 2
-    return len(model_errors) > (interval * window_len) + period + 2
 
 
 def merge24(x_train, x_test, x_train_auto, x_test_auto, window_length):
@@ -105,11 +125,10 @@ def merge24_48(x_train, x_test, x_train_auto, x_test_auto, window_length):
     x_test_new = np.hstack((x_test, x_test_auto))
     return (x_train_new, x_test_new)
 
-'''
+
 # func - function to get autocorrect data
 # can_use_auto - function to check if enough prediction to use autocorrect
 # merge - function to merge autocorrect data with current data
-'''
 autocorrect_map = {
     'error24': {
         'func': error24,
@@ -121,13 +140,18 @@ autocorrect_map = {
         'can_use_auto': can_use_autocorrect24_48,
         'merge': merge24_48,
     },
-    'error24_48_logvar': {
-        'func': error24_48_logvar,
-        'can_use_auto': can_use_autocorrect24_48_logvar,
-        'merge': merge24,
+    'error24Mean1': {
+        'func': error24Mean1,
+        'can_use_auto': can_use_autocorrect24_48,
+        'merge': merge24_48,
     },
-    'error24Mean': {
-        'func': error24Mean,
+    'error24Mean2': {
+        'func': error24Mean2,
+        'can_use_auto': can_use_autocorrect24_48,
+        'merge': merge24_48,
+    },
+    'error24Mean3': {
+        'func': error24Mean3,
         'can_use_auto': can_use_autocorrect24_48,
         'merge': merge24_48,
     }
