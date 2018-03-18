@@ -62,7 +62,7 @@ def _add_autocorrection(x_train, x_test, autocorrect, window_length,
     autocorrect_conf = get_autocorrect_conf(autocorrect)
     if ((autocorrect_conf is None) or
             (autocorrect_only_stable and not is_stable)):
-        return (x_train, x_test, False)
+        return (x_train, x_test, True)
 
     can_use_autocorrect = autocorrect_conf['can_use_auto']
     autocorrect_func = autocorrect_conf['func']
