@@ -521,13 +521,11 @@ if __name__ == '__main__':
         data_len = data.shape[0]
 
         scores = []
-        window_pos = [-2, -1, 0, 1, 2]
-        window_weights = [0.15, 0.6, 1, 0.6, 0.15]
-        window_sum = np.sum(window_weights)
         total_stable_count = 0
         period = 24
         max_samples = 1000
         all_stable_positions = []
+        diffs = []
 
         # 0 - stable enough
         # 1 - not stable enough
@@ -535,43 +533,38 @@ if __name__ == '__main__':
         current_offset = 0
 
         for i in range(2 * period, data_len - period):
-            score = 0
-            for p in window_pos:
-                weight = window_weights[p]
-                score += weight * abs(data.loc[i + p, 'current_temp'] -
-                                      data.loc[i + p - period, 'current_temp'])
-            scores.append(score / window_sum)
+            diff = abs(data.loc[i, 'future_temp_shmu'] -
+                       data.loc[i - period, 'future_temp_shmu'])
+            diffs.append(diff)
+            scores.append(0 if diff <= 1 else 1)
 
             if (len(scores) >= max_samples or i == data_len - period - 1):
                 plt.figure(figsize=(12, 6))
                 ax = plt.subplot(111)
                 box = ax.get_position()
                 ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-                plt.plot(scores, 'b', label='total difference')
+                plt.plot(diffs, 'b', label='total difference')
                 plt.title(
                     'Stable weather analysis from sample {}'.format(
                         current_offset + 2 * period))
                 plt.ylabel('Difference')
                 plt.xlabel('Samples')
 
-                for pos, v in enumerate(scores):
-                    scores[pos] = (v > 1) and 1 or 0
-
+                adjusted_scores = scores.copy()
                 for pos, v in enumerate(scores):
                     retain = True
-                    # at least 4 stable hours one after another
+                    # at least 6 stable hours one after another
                     # to mark position as really stable
-                    for f in range(1, 5):
-                        if (pos + f < len(scores)):
-                            if (scores[pos + f] != 0):
-                                retain = False
+                    for f in range(0, 6):
+                        if (scores[pos - f] != 0):
+                            retain = False
                     if (not retain):
-                        scores[pos] = 1
+                        adjusted_scores[pos] = 1
 
                 x_axis = []
                 y_axis = []
 
-                for pos, v in enumerate(scores):
+                for pos, v in enumerate(adjusted_scores):
                     if (v == 0):
                         total_stable_count += 1
                         x_axis.append(pos)
@@ -581,12 +574,13 @@ if __name__ == '__main__':
 
                 ax.scatter(x_axis, y_axis, marker='.',
                            color='g', label='stable weather')
-                plt.legend(bbox_to_anchor=(1.02, 1.015), loc=2)
+                plt.legend(loc=2)
                 plt.savefig('stable/{}.png'.format(i))
                 plt.close()
 
                 current_offset += max_samples
                 del scores[:]
+                del diffs[:]
 
         print('total stable count', total_stable_count)
         pd.Series(all_stable_positions).to_csv(
