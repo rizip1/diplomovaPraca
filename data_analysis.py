@@ -526,6 +526,7 @@ if __name__ == '__main__':
         max_samples = 1000
         all_stable_positions = []
         diffs = []
+        reals = []
 
         # 0 - stable enough
         # 1 - not stable enough
@@ -536,6 +537,9 @@ if __name__ == '__main__':
             diff = abs(data.loc[i, 'future_temp_shmu'] -
                        data.loc[i - period, 'future_temp_shmu'])
             diffs.append(diff)
+            real = abs(data.loc[i, 'future_temp'] -
+                       data.loc[i - period, 'future_temp'])
+            reals.append(real)
             scores.append(0 if diff <= 1 else 1)
 
             if (len(scores) >= max_samples or i == data_len - period - 1):
@@ -543,7 +547,7 @@ if __name__ == '__main__':
                 ax = plt.subplot(111)
                 box = ax.get_position()
                 ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-                plt.plot(diffs, 'b', label='total difference')
+                plt.plot(reals, 'b', label='total difference')
                 plt.title(
                     'Stable weather analysis from sample {}'.format(
                         current_offset + 2 * period))
@@ -581,6 +585,7 @@ if __name__ == '__main__':
                 current_offset += max_samples
                 del scores[:]
                 del diffs[:]
+                del reals[:]
 
         print('total stable count', total_stable_count)
         pd.Series(all_stable_positions).to_csv(
