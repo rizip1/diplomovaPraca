@@ -154,7 +154,7 @@ def predict(data, x, y, model, window_length, window_period,
             y_predicted += y_train[-1]
 
         if (not ((stable and not is_stable) or
-                 (autocorrect and not autocorrect_ready) or
+                 (stable and not autocorrect_ready) or
                  (autocorrect and ignore_diff_errors and
                   is_error_diff_enough(model_errors)))):
             r2 += model.score(x_train, y_train)
