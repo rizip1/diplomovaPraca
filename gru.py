@@ -68,6 +68,10 @@ weights = {}
 
 nprec = 0  # number of predictions made
 
+# keras loss is calculated on scaled data ...
+train_error = 0
+val_error = 0
+
 for i in range(start, start + 2000):
     weights_key = i % 24  # count for hours
 
@@ -101,18 +105,29 @@ for i in range(start, start + 2000):
     # kernel_constraint=maxnorm(3)
     # recurrent_initializer='identity'
     # recurrent_dropout=0.2
+    # return_sequences
     model.add(GRU(40, input_shape=(train_X.shape[1], train_X.shape[2]),
+                  kernel_constraint=maxnorm(3), return_sequences=True,
+                  activation='tanh'))
+    model.add(GRU(20, input_shape=(train_X.shape[1], train_X.shape[2]),
+                  kernel_constraint=maxnorm(3),
                   activation='tanh'))
     model.add(Dense(1))
     model.compile(loss='mae', optimizer='RMSprop', metrics=['mae'])
 
     if (weights_key not in weights):
-        model.fit(train_X, train_y, epochs=50, batch_size=4,
-                  verbose=1, shuffle=False)
+        h = model.fit(train_X, train_y, epochs=100, batch_size=4,
+                      validation_data=(test_X, test_y),
+                      verbose=0, shuffle=False)
+        train_error += h.history['loss'][-1]
+        val_error += h.history['val_loss'][-1]
     else:
         model.set_weights(weights[weights_key])
-        model.fit(train_X, train_y, epochs=2, batch_size=4,
-                  verbose=0, shuffle=False)
+        h = model.fit(train_X, train_y, epochs=2, batch_size=4,
+                      validation_data=(test_X, test_y),
+                      verbose=0, shuffle=False)
+        train_error += h.history['loss'][-1]
+        val_error += h.history['val_loss'][-1]
 
     weights[weights_key] = model.get_weights()
 
@@ -165,6 +180,8 @@ for i in range(start, start + 2000):
 
         print('\nreg_better', reg_better)
         print('nn_better', nn_better)
+
+        print('train-val error', train_error / nprec, val_error / nprec)
 
     all_y_test = np.append(all_y_test, y_test)
     all_predicted = np.append(all_predicted, y_predicted)
