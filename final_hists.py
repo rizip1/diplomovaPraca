@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
 mae_results = {
     11801: [1.1225, 1.7636],
     11803: [1.0093, 1.5941],
@@ -71,3 +74,41 @@ mse_results = {
     11978: [1.9690, 3.8804],
     11993: [2.4935, 9.0021],
 }
+
+mae_model = []
+mae_aladin = []
+mse_model = []
+mse_aladin = []
+
+for value in mae_results.values():
+    mae_model.append(value[0])
+    mae_aladin.append(value[1])
+
+for value in mse_results.values():
+    mse_model.append(value[0])
+    mse_aladin.append(value[1])
+
+plt.figure(figsize=(12, 6))
+plt.boxplot([mae_model, mae_aladin, mse_model, mse_aladin], showfliers=False,
+            labels=['MAE final', 'MAE Aladin', 'MSE final', 'MSE Aladin'])
+plt.title('MAE and MSE comparison')
+plt.show()
+plt.close()
+
+bin_size = 0.05
+bins = np.arange(min(mae_model) - bin_size,
+                 max(mae_model) + bin_size, bin_size)
+plt.figure(figsize=(12, 6))
+plt.hist(mae_model, bins=bins, edgecolor='black', linewidth=1.2)
+plt.title('MAE errors')
+plt.show()
+plt.close()
+
+bin_size = 0.05
+bins = np.arange(min(mse_model) - bin_size,
+                 max(mse_model) + bin_size, bin_size)
+plt.figure(figsize=(12, 6))
+plt.hist(mse_model, edgecolor='black', linewidth=1.2)
+plt.title('MSE errors')
+plt.show()
+plt.close()
