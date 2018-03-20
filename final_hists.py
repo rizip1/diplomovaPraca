@@ -122,15 +122,15 @@ plt.close()
 mae_impr = []
 mse_impr = []
 for value in mae_results.values():
-    mae_impr.append((value[1] - value[0]) / value[1])
+    mae_impr.append(((value[1] - value[0]) / value[1]) * 100)
 
 for value in mse_results.values():
-    mse_impr.append((value[1] - value[0]) / value[1])
+    mse_impr.append(((value[1] - value[0]) / value[1]) * 100)
 
 plt.figure(figsize=(12, 6))
 plt.hist(mae_impr, rwidth=0.95)
 plt.title('Percentage improvement for MAE')
-plt.xlabel('Improvement')
+plt.xlabel('Percentage improvement')
 plt.ylabel('Occurencies')
 plt.savefig('{}/mae_improvement.png'.format(RESULTS_PATH))
 plt.close()
@@ -138,15 +138,15 @@ plt.close()
 plt.figure(figsize=(12, 6))
 plt.hist(mse_impr, rwidth=0.95)
 plt.title('Percentage improvement for MSE')
-plt.xlabel('Improvement')
+plt.xlabel('Percentage improvement')
 plt.ylabel('Occurencies')
 plt.savefig('{}/mse_improvement.png'.format(RESULTS_PATH))
 plt.close()
 
 print('MAE improvement: {0:.2f}% - {1:.2f}%'.format(
-    100 * min(mae_impr), 100 * max(mae_impr)))
+    min(mae_impr), max(mae_impr)))
 print('MSE improvement: {0:.2f}% - {1:.2f}%'.format(
-    100 * min(mse_impr), 100 * max(mse_impr)))
+    min(mse_impr), max(mse_impr)))
 
-print('MAE median: {0:.2f}%'.format(100 * np.median(mae_impr)))
-print('MSE median: {0:.2f}%'.format(100 * np.median(mse_impr)))
+print('MAE median: {0:.2f}%'.format(np.median(mae_impr)))
+print('MSE median: {0:.2f}%'.format(np.median(mse_impr)))
