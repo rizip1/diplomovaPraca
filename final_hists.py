@@ -1,5 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+from constants import RESULTS_PATH
+
+if not os.path.exists(RESULTS_PATH):
+    os.makedirs(RESULTS_PATH)
+
+# use `ensemble2` model without autoregressive term
 
 mae_results = {
     11801: [1.1225, 1.7636],
@@ -91,24 +98,55 @@ for value in mse_results.values():
 plt.figure(figsize=(12, 6))
 plt.boxplot([mae_model, mae_aladin, mse_model, mse_aladin], showfliers=False,
             labels=['MAE final', 'MAE Aladin', 'MSE final', 'MSE Aladin'])
-plt.title('MAE and MSE comparison')
-plt.show()
+plt.title('MAE and MSE comparison, ignoring outliers')
+plt.savefig('{}/boxplot.png'.format(RESULTS_PATH))
 plt.close()
 
-bin_size = 0.05
-bins = np.arange(min(mae_model) - bin_size,
-                 max(mae_model) + bin_size, bin_size)
 plt.figure(figsize=(12, 6))
-plt.hist(mae_model, bins=bins, edgecolor='black', linewidth=1.2)
-plt.title('MAE errors')
-plt.show()
+plt.hist(mae_model, rwidth=0.95)
+plt.title('MAE for final model')
+plt.xlabel('Absolute error')
+plt.ylabel('Occurencies')
+plt.savefig('{}/mae_errors.png'.format(RESULTS_PATH))
 plt.close()
 
-bin_size = 0.05
-bins = np.arange(min(mse_model) - bin_size,
-                 max(mse_model) + bin_size, bin_size)
 plt.figure(figsize=(12, 6))
-plt.hist(mse_model, edgecolor='black', linewidth=1.2)
-plt.title('MSE errors')
-plt.show()
+plt.hist(mse_model, rwidth=0.95)
+plt.title('MSE for final model')
+plt.xlabel('Mean squared error')
+plt.ylabel('Occurencies')
+plt.savefig('{}/mse_errors.png'.format(RESULTS_PATH))
 plt.close()
+
+# calculate percentage improvement
+mae_impr = []
+mse_impr = []
+for value in mae_results.values():
+    mae_impr.append((value[1] - value[0]) / value[1])
+
+for value in mse_results.values():
+    mse_impr.append((value[1] - value[0]) / value[1])
+
+plt.figure(figsize=(12, 6))
+plt.hist(mae_impr, rwidth=0.95)
+plt.title('Percentage improvement for MAE')
+plt.xlabel('Improvement')
+plt.ylabel('Occurencies')
+plt.savefig('{}/mae_improvement.png'.format(RESULTS_PATH))
+plt.close()
+
+plt.figure(figsize=(12, 6))
+plt.hist(mse_impr, rwidth=0.95)
+plt.title('Percentage improvement for MSE')
+plt.xlabel('Improvement')
+plt.ylabel('Occurencies')
+plt.savefig('{}/mse_improvement.png'.format(RESULTS_PATH))
+plt.close()
+
+print('MAE improvement: {0:.2f}% - {1:.2f}%'.format(
+    100 * min(mae_impr), 100 * max(mae_impr)))
+print('MSE improvement: {0:.2f}% - {1:.2f}%'.format(
+    100 * min(mse_impr), 100 * max(mse_impr)))
+
+print('MAE median: {0:.2f}%'.format(100 * np.median(mae_impr)))
+print('MSE median: {0:.2f}%'.format(100 * np.median(mse_impr)))
