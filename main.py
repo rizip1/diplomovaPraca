@@ -7,7 +7,7 @@ import sklearn.ensemble as dt
 import sklearn.neural_network as nn
 import sklearn.neighbors as ng
 
-from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
+from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import mean_squared_error, mean_absolute_error
@@ -38,7 +38,7 @@ fieldsToDrop = [
     'current_temp', 'current_humidity', 'current_pressure',
     'current_rainfall_last_hour', 'current_wind_speed',
     'current_wind_direction', 'future_temp', 'validity_date',
-    'reference_date', 'p_time_rainfall_last_hour', 'p_time_humidity',
+    'reference_date', 'p_time_rainfall_last_hour',
     'p_time_wind_speed', 'p_time_wind_direction', 'p_time_pressure']
 
 '''
@@ -69,7 +69,7 @@ def get_model(name, params, x):
                          normalize=False)
     elif (name == 'ridge'):
         # higher alpha = more regularization
-        model = lm.Ridge(alpha=1, copy_X=True, fit_intercept=True,
+        model = lm.Ridge(alpha=0.05, copy_X=True, fit_intercept=True,
                          normalize=False)
     elif (name == 'ridge-cv'):
         cv = TimeSeriesSplit(n_splits=5)
@@ -84,11 +84,13 @@ def get_model(name, params, x):
         cv = TimeSeriesSplit(n_splits=5)
         parameters = {
             'C': [1, 3, 5, 10, 20, 50],
+            'gamma': [1, 0.5, 0.25, 0.1],
         }
         s = svm.SVR(kernel='rbf')
         model = GridSearchCV(s, parameters, cv=cv)
         # model = svm.SVR(kernel='linear', C=10, epsilon=0.01)
         # model = svm.SVR(kernel='linear', C=100)
+        # model = svm.SVR(kernel='rbf', C=1, gamma=1)
     elif (name == 'knn'):
         model = ng.KNeighborsRegressor(n_neighbors=1)
     elif (name == 'gradient-boost'):
@@ -97,17 +99,21 @@ def get_model(name, params, x):
     elif (name == 'rf'):
         model = dt.RandomForestRegressor(n_estimators=300, max_depth=5)
     elif (name == 'nn'):
-        # smaller alpha = more regularization
-        cv = TimeSeriesSplit(n_splits=4)
+        # smaller alpha = less regularization
+        '''
+        cv = TimeSeriesSplit(n_splits=3)
         parameters = {
             'hidden_layer_sizes': [
-                [30], [50], [100], [30, 30]
+                [20], [30],
             ],
-            'alpha': [1, 0.1, 0.01, 0.001, 0.0001]
+            'alpha': [2, 1, 0.5, 0.01]
         }
-        model = nn.MLPRegressor(hidden_layer_sizes=10,
-                                activation='relu', solver='lbfgs')
-        # model = RandomizedSearchCV(n, parameters, n_iter=3, cv=cv)
+        n = nn.MLPRegressor(activation='relu', solver='lbfgs')
+        model = GridSearchCV(n, parameters, cv=cv)
+        '''
+        model = nn.MLPRegressor(
+            activation='relu', hidden_layer_sizes=(30,), solver='lbfgs',
+            alpha=2)
     return model, x
 
 

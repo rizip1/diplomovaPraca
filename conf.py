@@ -9,18 +9,20 @@ models:
     scale - (False, 'min-max', 'standard')
 '''
 
+# use for switch off/on of stable weather
+
 config = {
-    'data': 'data_tmp/data_11816.csv',
+    'data': 'new_data/data_11816.csv',
     'stable': {
         'active': False,
-        'func': 's7',
-        'ide': True,
+        'func': 's1',
+        'ide': False,  # ignore for now
         'aos': True,
     },
     'models': [
         {
             'model': 'ols',
-            'weight': False,
+            'weight': 0.97,
             'diff': False,
             'scale': False,
             'model_params': {
@@ -30,7 +32,52 @@ config = {
             'window_period': 24,
             'skip': 0,
             'features': {
-
+                'min-max': 'min-max',
+                'feature-lagged': [{
+                    'lags': 1,
+                    'lag_by': 1,
+                    'name': 'future_temp_shmu',
+                }],
+            },
+        },
+        {
+            'model': 'ols',
+            'weight': 0.97,
+            'diff': False,
+            'scale': False,
+            'model_params': {
+                'fit_intercept': True,
+            },
+            'window_length': 120,
+            'window_period': 24,
+            'skip': 0,
+            'features': {
+                'moments': 'mean',
+                'feature-lagged': [{
+                    'lags': 1,
+                    'lag_by': 1,
+                    'name': 'future_temp_shmu',
+                }],
+            },
+        },
+        {
+            'model': 'ols',
+            'weight': 0.97,
+            'diff': False,
+            'scale': False,
+            'model_params': {
+                'fit_intercept': True,
+            },
+            'window_length': 120,
+            'window_period': 24,
+            'skip': 0,
+            'features': {
+                'afternoon-morning': True,
+                'feature-lagged': [{
+                    'lags': 1,
+                    'lag_by': 1,
+                    'name': 'future_temp_shmu',
+                }],
             },
         },
     ],
