@@ -4,9 +4,6 @@ import pandas as pd
 
 from utils import parse_hour
 
-'''
-TODO refactor/reuse code, do not count on default params
-'''
 
 missing_data_value = -999
 

@@ -99,7 +99,7 @@ def get_model(name, params, x):
     elif (name == 'rf'):
         model = dt.RandomForestRegressor(n_estimators=300, max_depth=5)
     elif (name == 'nn'):
-        # smaller alpha = less regularization
+        # higher alpha = more regularization
         '''
         cv = TimeSeriesSplit(n_splits=3)
         parameters = {
@@ -270,6 +270,3 @@ if __name__ == '__main__':
     show_metrics(result)
     save_predictions(result)
     save_errors(result)
-
-# TODO control calculations ... MAE, MSE
-# TODO move parser documentation to conf.py
