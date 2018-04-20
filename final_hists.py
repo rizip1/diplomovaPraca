@@ -1,8 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from matplotlib import rcParams
 from utils import color_print
 from constants import RESULTS_PATH
+
+rcParams['xtick.labelsize'] = 12
+rcParams['ytick.labelsize'] = 12
+fontsize = 12
 
 if not os.path.exists(RESULTS_PATH):
     os.makedirs(RESULTS_PATH)
@@ -114,16 +119,16 @@ def compare(mae_results, mse_results, exp_greater, exp_lower, title,
     plt.figure(figsize=(12, 6))
     plt.hist(mae_impr, rwidth=0.95)
     plt.title('Percentage improvement for MAE')
-    plt.xlabel('Percentage improvement')
-    plt.ylabel('Occurrencies')
+    plt.xlabel('Percentage improvement', fontsize=fontsize)
+    plt.ylabel('Occurrencies', fontsize=fontsize)
     plt.savefig('{}/{}.png'.format(RESULTS_PATH, mae_path))
     plt.close()
 
     plt.figure(figsize=(12, 6))
     plt.hist(mse_impr, rwidth=0.95)
     plt.title('Percentage improvement for MSE')
-    plt.xlabel('Percentage improvement')
-    plt.ylabel('Occurrencies')
+    plt.xlabel('Percentage improvement', fontsize=fontsize)
+    plt.ylabel('Occurrencies', fontsize=fontsize)
     plt.savefig('{}/{}.png'.format(RESULTS_PATH, mse_path))
     plt.close()
 
@@ -152,23 +157,23 @@ for value in mse_results.values():
 plt.figure(figsize=(12, 6))
 plt.boxplot([mae_model, mae_aladin, mse_model, mse_aladin], showfliers=False,
             labels=['MAE final', 'MAE Aladin', 'MSE final', 'MSE Aladin'])
-plt.title('MAE and MSE comparison, ignoring outliers')
+plt.title('MAE and MSE comparison (final to Aladin), ignoring outliers')
 plt.savefig('{}/boxplot.png'.format(RESULTS_PATH))
 plt.close()
 
 plt.figure(figsize=(12, 6))
 plt.hist(mae_model, rwidth=0.95)
 plt.title('MAE for final model')
-plt.xlabel('Absolute error')
-plt.ylabel('Occurencies')
+plt.xlabel('Absolute error', fontsize=fontsize)
+plt.ylabel('Occurencies', fontsize=fontsize)
 plt.savefig('{}/mae_errors.png'.format(RESULTS_PATH))
 plt.close()
 
 plt.figure(figsize=(12, 6))
 plt.hist(mse_model, rwidth=0.95)
 plt.title('MSE for final model')
-plt.xlabel('Mean squared error')
-plt.ylabel('Occurencies')
+plt.xlabel('Mean squared error', fontsize=fontsize)
+plt.ylabel('Occurencies', fontsize=fontsize)
 plt.savefig('{}/mse_errors.png'.format(RESULTS_PATH))
 plt.close()
 
@@ -181,27 +186,22 @@ compare(mae_results, mse_results, 0, 1, '\nRef to Final comparision',
         'mae_improvement_ref_to_final', 'mse_improvement_ref_to_final')
 
 plt.figure(figsize=(12, 6))
-plt.boxplot([mae_model, mae_ref, mse_model, mse_ref], showfliers=False,
-            labels=['MAE final', 'MAE ref', 'MSE final', 'MSE ref'])
-plt.title('MAE and MSE comparison, ignoring outliers')
+plt.boxplot([mae_model, mae_ref, mse_model, mse_ref],
+            labels=['MAE final', 'MAE ref', 'MSE final', 'MSE ref'],
+            notch=True)
+plt.title('MAE and MSE comparison (final to ref)')
 plt.savefig('{}/boxplot_ref_to_final.png'.format(RESULTS_PATH))
-plt.close()
-
-plt.figure(figsize=(12, 6))
-plt.boxplot([mae_model, mae_ref], showfliers=False,
-            labels=['MAE final', 'MAE ref'])
-plt.title('MAE comparison, ignoring outliers')
-plt.savefig('{}/boxplot_mae_ref_to_final.png'.format(RESULTS_PATH))
-plt.close()
-
-plt.figure(figsize=(12, 6))
-plt.boxplot([mse_model, mse_ref], showfliers=False,
-            labels=['MSE final', 'MSE ref'])
-plt.title('MSE comparison, ignoring outliers')
-plt.savefig('{}/boxplot_mse_ref_to_final.png'.format(RESULTS_PATH))
 plt.close()
 
 #####################################################################
 
 compare(mae_results, mse_results, 3, 1, '\nRef to Hum',
         'mae_improvement_ref_to_hum', 'mse_improvement_ref_to_hum')
+
+plt.figure(figsize=(12, 6))
+plt.boxplot([mae_hum, mae_ref, mse_hum, mse_ref],
+            labels=['MAE hum', 'MAE ref', 'MSE hum', 'MSE ref'],
+            notch=True)
+plt.title('MAE and MSE comparison (hum to ref)')
+plt.savefig('{}/boxplot_ref_to_hum.png'.format(RESULTS_PATH))
+plt.close()
