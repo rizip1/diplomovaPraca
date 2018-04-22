@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 Helper script for creating graphs from hardcoded data
 '''
 
+fontsize = 12
+fontsizeTitle = 14
+
 x = [60, 90, 120, 150, 180, 210, 240]
 
 y_12_mae = [0.9535, 0.9544, 0.9644, 0.9682, 0.9761, 0.9791, 0.9816]
@@ -20,9 +23,9 @@ plt.plot(x, y_12_mae, 'g', label='12 interval')
 plt.plot(x, y_24_mae, 'b', label='24 interval')
 plt.xticks(x)
 plt.legend(loc=2)
-plt.title('MAE comparison')
-plt.ylabel('MAE')
-plt.xlabel('Window length')
+plt.title('MAE comparison', fontsize=fontsizeTitle)
+plt.ylabel('MAE', fontsize=fontsize)
+plt.xlabel('Window length', fontsize=fontsize)
 plt.savefig('other/12_to_24_mae.png')
 plt.close()
 
@@ -31,9 +34,9 @@ plt.plot(x, y_12_mse, 'g', label='12 interval')
 plt.plot(x, y_24_mse, 'b', label='24 interval')
 plt.xticks(x)
 plt.legend(loc=2)
-plt.title('MSE comparison')
-plt.ylabel('MSE')
-plt.xlabel('Window length')
+plt.title('MSE comparison', fontsize=fontsizeTitle)
+plt.ylabel('MSE', fontsize=fontsize)
+plt.xlabel('Window length', fontsize=fontsize)
 plt.savefig('other/12_to_24_mse.png')
 plt.close()
 
@@ -42,8 +45,8 @@ plt.plot(x, y_12_bias, 'g', label='12 interval')
 plt.plot(x, y_24_bias, 'b', label='24 interval')
 plt.xticks(x)
 plt.legend(loc=2)
-plt.title('Bias comparison')
-plt.ylabel('Bias')
-plt.xlabel('Window length')
+plt.title('Bias comparison', fontsize=fontsizeTitle)
+plt.ylabel('Bias', fontsize=fontsize)
+plt.xlabel('Window length', fontsize=fontsize)
 plt.savefig('other/12_to_24_bias.png')
 plt.close()
