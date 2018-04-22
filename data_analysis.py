@@ -20,7 +20,7 @@ label_mapping = {
     'current_rainfall_last_hour': 'Rainfall',
     'current_temp': 'Temperature',
     'current_humidity': 'Humidity',
-    'future_temp_shmu': 'SHMU temperature',
+    'future_temp_shmu': 'Aladin temperature',
     'p_time_pressure': 'Pressure',
     'p_time_wind_speed': 'Wind speed',
     'p_time_wind_direction': 'Wind direction',
@@ -259,7 +259,7 @@ def get_most_important_features(x, y, out_file):
                  axis=0)
 
     plt.figure(figsize=(20, 10))
-    plt.title('Feature importances', fontsize=20)
+    plt.title('Features importances', fontsize=20)
     plt.bar(range(x.shape[1]), importances[indices],
             color='r', align='center', yerr=std[indices])
 
